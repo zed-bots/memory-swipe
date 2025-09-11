@@ -234,6 +234,30 @@
         }
     });
 
+    // MainButton functionality
+    if (window.Telegram) {
+        Telegram.WebApp.MainButton.setText("Поделиться счётом");
+        Telegram.WebApp.MainButton.onClick(function() {
+            // Show a popup to confirm sharing
+            Telegram.WebApp.showPopup({
+                title: 'Поделиться результатом?',
+                message: `Ваш счёт: ${score}. Хотите отправить его в чат?`,
+                buttons: [
+                    { id: 'share', type: 'default', text: 'Да' },
+                    { id: 'cancel', type: 'cancel' }
+                ]
+            }, (buttonId) => {
+                if (buttonId === 'share') {
+                    // Send message with score to the user's chat
+                    const shareMessage = `Я накормил Капи и набрал ${score} очков! Сможешь побить мой рекорд?`;
+                    Telegram.WebApp.sendData(JSON.stringify({ text: shareMessage }));
+                }
+            });
+        });
+        // Hide the button initially
+        Telegram.WebApp.MainButton.hide();
+    }
+
     // Input handlers
     document.addEventListener('keydown', (e) => {
         if (!gameActive) return;
@@ -272,6 +296,10 @@
                 console.error("Autoplay failed:", error);
             });
         }
+        // Hide the Telegram Main Button when the game starts
+        if (window.Telegram) {
+            Telegram.WebApp.MainButton.hide();
+        }
         gameLoop();
     }
 
@@ -283,6 +311,10 @@
         overlaySubtext.innerHTML = `Ваш счёт: <span class="font-bold text-blue-600">${score}</span> очков.`;
         startButton.textContent = 'Покормить ещё раз';
         overlay.classList.remove('opacity-0', 'pointer-events-none');
+        // Show the Telegram Main Button when the game ends
+        if (window.Telegram) {
+            Telegram.WebApp.MainButton.show();
+        }
     }
 
     function createPositiveEffect() {
@@ -332,6 +364,11 @@
         }
 
         if (correct) {
+            // Add haptic feedback for correct answer
+            if (window.Telegram && Telegram.WebApp.HapticFeedback) {
+                Telegram.WebApp.HapticFeedback.impactOccurred('light');
+            }
+
             // Calculate score based on time remaining
             const timeTaken = performance.now() - lastAnswerTime;
 
@@ -360,6 +397,11 @@
                 gameLoop();
             }, timeoutDuration);
         } else {
+            // Add haptic feedback for incorrect answer
+            if (window.Telegram && Telegram.WebApp.HapticFeedback) {
+                Telegram.WebApp.HapticFeedback.notificationOccurred('error');
+            }
+
             animationClass = 'card-animate-out-incorrect';
             let reason = '';
             if (direction === 'left' && isRepeated) {
