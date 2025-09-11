@@ -19,7 +19,73 @@
             -ms-user-select: none;
             user-select: none;
         }
-        /* Убраны старые классы анимации, так как они мешали отображению. */
+
+        /* Animation for card entry */
+        @keyframes fly-in {
+            from {
+                transform: translate(100%, -100%) scale(0.5);
+                opacity: 0;
+            }
+            to {
+                transform: translate(0, 0) scale(1);
+                opacity: 1;
+            }
+        }
+
+        .card-animate-in {
+            animation: fly-in 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+        }
+
+        /* Animation for correct answer, flying out to the left */
+        @keyframes fly-out-left {
+            from {
+                transform: translate(0, 0) scale(1);
+                opacity: 1;
+            }
+            to {
+                transform: translate(-100%, 100%) scale(0.5);
+                opacity: 0;
+            }
+        }
+
+        .card-animate-out-correct-left {
+            animation: fly-out-left 0.3s cubic-bezier(0.55, 0.085, 0.68, 0.53) forwards;
+        }
+
+        /* Animation for correct answer, flying out to the right */
+        @keyframes fly-out-right {
+            from {
+                transform: translate(0, 0) scale(1);
+                opacity: 1;
+            }
+            to {
+                transform: translate(100%, 100%) scale(0.5);
+                opacity: 0;
+            }
+        }
+
+        .card-animate-out-correct-right {
+            animation: fly-out-right 0.3s cubic-bezier(0.55, 0.085, 0.68, 0.53) forwards;
+        }
+
+        /* Animation for incorrect answer (burn-out) */
+        @keyframes burn-out {
+            0% {
+                transform: scale(1) rotate(0deg);
+                opacity: 1;
+                filter: blur(0px);
+            }
+            100% {
+                transform: scale(2) rotate(30deg);
+                opacity: 0;
+                filter: blur(8px);
+            }
+        }
+
+        .card-animate-out-incorrect {
+            animation: burn-out 0.4s ease-out forwards;
+        }
+
     </style>
 </head>
 <body class="h-screen w-screen flex items-center justify-center bg-gray-100 p-4">
@@ -35,7 +101,7 @@
 
     <!-- Card Display Area -->
     <div class="relative w-full h-full flex items-center justify-center mb-12">
-        <div id="card-display" class="text-[12rem] transition-opacity duration-300 ease-in-out"></div>
+        <div id="card-display" class="text-[12rem]"></div>
     </div>
 
     <!-- Control Buttons -->
@@ -127,7 +193,6 @@
         score = 0;
         seenCards = [];
         gameActive = true;
-        // Делаем оверлей прозрачным и отключаем события, чтобы показать игру
         overlay.classList.add('opacity-0', 'pointer-events-none');
         updateScore();
         gameLoop();
@@ -140,37 +205,48 @@
         overlayText.textContent = 'Game Over';
         overlaySubtext.innerHTML = `Final Score: <span class="font-bold text-blue-600">${score}</span>`;
         startButton.textContent = 'Play Again';
-        // Возвращаем оверлей на экран
         overlay.classList.remove('opacity-0', 'pointer-events-none');
     }
 
     function handleInput(direction) {
         let correct = false;
+        let animationClass = '';
+
         if (direction === 'left' && !isRepeated) {
             correct = true;
+            animationClass = 'card-animate-out-correct-left';
         } else if (direction === 'right' && isRepeated) {
             correct = true;
+            animationClass = 'card-animate-out-correct-right';
+        } else {
+            animationClass = 'card-animate-out-incorrect';
         }
 
         if (correct) {
             score++;
             updateScore();
-            gameLoop();
+            cardDisplay.classList.add(animationClass);
+            setTimeout(() => {
+                cardDisplay.classList.remove(animationClass);
+                gameLoop();
+            }, 300);
         } else {
-            endGame();
+            cardDisplay.classList.add(animationClass);
+            setTimeout(() => {
+                endGame();
+                cardDisplay.classList.remove(animationClass);
+            }, 400); // Increased timeout to match new animation duration
         }
     }
 
     function gameLoop() {
         if (!gameActive) return;
 
-        // Reset timer
         clearInterval(timerInterval);
         clearTimeout(timeout);
-        timeRemaining = 5.0; // Обновлено время
+        timeRemaining = 5.0;
         updateTimer();
 
-        // Randomly select next card
         const shouldRepeat = seenCards.length > 0 && Math.random() < 0.5;
         isRepeated = shouldRepeat;
         if (shouldRepeat) {
@@ -178,29 +254,26 @@
         } else {
             const availableEmojis = emojis.filter(e => !seenCards.includes(e));
             if (availableEmojis.length === 0) {
-                endGame(); // All cards have been seen, end game.
+                endGame();
                 return;
             }
             currentCard = availableEmojis[Math.floor(Math.random() * availableEmojis.length)];
             seenCards.push(currentCard);
         }
 
-        // Обновляем карту: сначала делаем её прозрачной, затем меняем контент и плавно показываем
-        cardDisplay.style.opacity = '0';
+        cardDisplay.textContent = currentCard;
+        cardDisplay.classList.add('card-animate-in');
         setTimeout(() => {
-            cardDisplay.textContent = currentCard;
-            cardDisplay.style.opacity = '1';
-        }, 10); // Небольшая задержка, чтобы анимация сработала корректно
+            cardDisplay.classList.remove('card-animate-in');
+        }, 500);
 
-        // Start new timer
         let startTime = performance.now();
         timerInterval = setInterval(() => {
             const elapsedTime = performance.now() - startTime;
-            timeRemaining = Math.max(0, 5 - (elapsedTime / 1000)); // Обновлено время
+            timeRemaining = Math.max(0, 5 - (elapsedTime / 1000));
             updateTimer();
         }, timerUpdateInterval);
 
-        // Timeout for incorrect answer
         timeout = setTimeout(() => {
             if (gameActive) {
                 endGame();
