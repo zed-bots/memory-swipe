@@ -8,6 +8,169 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Telegram Web App API -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, collection, query, orderBy, limit, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Firebase-related global variables provided by the environment
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        let db = null;
+        let auth = null;
+        let userId = null;
+        let isAuthReady = false;
+
+        async function setupFirebase() {
+            try {
+                // Set Firestore log level to debug for detailed console output
+                setLogLevel('debug');
+
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                // Expose Firebase and utility functions to the global scope *after* initialization
+                window.db = db;
+                window.auth = auth;
+                window.getDoc = getDoc;
+                window.setDoc = setDoc;
+                window.doc = doc;
+                window.appId = appId;
+                window.getUserId = () => userId;
+                window.isAuthReady = () => isAuthReady;
+
+                // Authenticate the user using the provided custom token or anonymously
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                // Wait for auth state to be ready and get the user ID
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        isAuthReady = true;
+                        console.log(`User authenticated with ID: ${userId}`);
+                        document.getElementById('user-id-display').textContent = `ID пользователя: ${userId}`;
+                        await loadHighScore();
+                    } else {
+                        // Handle case where authentication fails or user logs out
+                        userId = null;
+                        isAuthReady = true;
+                        document.getElementById('user-id-display').textContent = `ID пользователя: Анонимный`;
+                        console.log("No user is signed in.");
+                    }
+                });
+
+            } catch (error) {
+                console.error("Firebase setup failed:", error);
+            }
+        }
+
+        window.loadHighScore = async () => {
+            if (!window.isAuthReady() || !window.getUserId()) {
+                console.warn("Auth not ready yet, skipping high score load.");
+                return 0;
+            }
+            if (!window.db) {
+                console.error("Firestore database is not initialized. Cannot load high score.");
+                return 0;
+            }
+            try {
+                const docRef = window.doc(window.db, `artifacts/${window.appId}/users/${window.getUserId()}/high_scores/capybara_feast`);
+                const docSnap = await window.getDoc(docRef);
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    window.highScore = data.score;
+                    console.log("High score loaded:", window.highScore);
+                    document.getElementById('high-score-display').textContent = `Рекорд: ${window.highScore}`;
+                    return data.score;
+                } else {
+                    window.highScore = 0;
+                    console.log("No high score found for this user.");
+                    return 0;
+                }
+            } catch (error) {
+                console.error("Error loading high score:", error);
+                return 0;
+            }
+        };
+
+        window.saveHighScore = async (score) => {
+            if (!window.isAuthReady() || !window.getUserId()) {
+                console.error("Cannot save high score. Authentication not ready or user ID is missing.");
+                return;
+            }
+            if (!window.db) {
+                console.error("Firestore database is not initialized. Cannot save high score.");
+                return;
+            }
+            try {
+                const docRef = window.doc(window.db, `artifacts/${window.appId}/users/${window.getUserId()}/high_scores/capybara_feast`);
+                await window.setDoc(docRef, { score: score }, { merge: true });
+                console.log("High score saved successfully.");
+                window.highScore = score;
+                document.getElementById('high-score-display').textContent = `Рекорд: ${window.highScore}`;
+            } catch (error) {
+                console.error("Error saving high score:", error);
+            }
+        };
+
+        window.saveGlobalHighScore = async (score) => {
+            if (!window.isAuthReady() || !window.getUserId()) {
+                console.error("Cannot save global high score. Authentication not ready or user ID is missing.");
+                return;
+            }
+            if (!window.db) {
+                console.error("Firestore database is not initialized. Cannot save high score.");
+                return;
+            }
+            try {
+                // Save the score to a publicly accessible collection
+                const docRef = doc(window.db, `artifacts/${window.appId}/public/data/global_high_scores`, window.getUserId());
+                await setDoc(docRef, { score: score, userId: window.getUserId(), timestamp: new Date() });
+                console.log("Global high score saved successfully.");
+            } catch (error) {
+                console.error("Error saving global high score:", error);
+            }
+        };
+
+        window.fetchLeaderboard = async () => {
+            if (!window.db) {
+                console.error("Firestore database is not initialized. Cannot fetch leaderboard.");
+                return [];
+            }
+            try {
+                // NOTE: Using orderBy here is the correct way to implement a leaderboard.
+                // Firestore might require a composite index for this query to work.
+                // The provided security rules should allow this.
+                const q = query(
+                    collection(window.db, `artifacts/${window.appId}/public/data/global_high_scores`),
+                    orderBy('score', 'desc'),
+                    limit(100)
+                );
+                const querySnapshot = await getDocs(q);
+                const leaderboard = [];
+                querySnapshot.forEach((doc) => {
+                    leaderboard.push(doc.data());
+                });
+                return leaderboard;
+            } catch (error) {
+                console.error("Error fetching leaderboard:", error);
+                return [];
+            }
+        };
+
+
+        // Initialize Firebase on window load
+        window.addEventListener('load', setupFirebase);
+    </script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
 
@@ -168,9 +331,33 @@
     <div id="overlay" class="absolute inset-0 bg-white/90 flex flex-col items-center justify-center text-center p-8 transition-opacity duration-300 z-20">
         <h2 id="overlay-text" class="text-4xl md:text-5xl font-extrabold text-gray-800 mb-4">Пир Капибары</h2>
         <p id="overlay-subtext" class="text-lg md:text-xl text-gray-600 mb-8">Проведи влево, если это новый фрукт, вправо — если он уже был.</p>
+        <!-- High score display on the overlay -->
+        <div id="high-score-container" class="text-center text-gray-700 mb-6">
+            <p id="high-score-display" class="text-2xl font-bold mb-2">Рекорд: 0</p>
+            <p id="high-score-message" class="text-lg font-semibold text-green-600 opacity-0 transition-opacity duration-300">Новый рекорд!</p>
+        </div>
         <button id="start-button" class="bg-blue-600 hover:bg-blue-700 text-white text-2xl font-bold py-4 px-12 rounded-full shadow-lg transition-all duration-300 transform hover:scale-105">
             Накормить Капи
         </button>
+        <button id="leaderboard-button" class="mt-4 bg-gray-500 hover:bg-gray-600 text-white text-lg font-bold py-3 px-8 rounded-full shadow-lg transition-all duration-300 transform hover:scale-105">
+            Таблица лидеров
+        </button>
+        <p id="user-id-display" class="text-xs text-gray-400 mt-4"></p>
+    </div>
+
+    <!-- Leaderboard Modal -->
+    <div id="leaderboard-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-30">
+        <div class="bg-white rounded-3xl shadow-2xl p-6 w-11/12 max-w-md max-h-[80%] flex flex-col">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-2xl font-bold text-gray-800">Таблица лидеров</h3>
+                <button id="close-leaderboard" class="text-gray-500 hover:text-gray-700 text-3xl font-bold">&times;</button>
+            </div>
+            <div id="leaderboard-list-container" class="overflow-y-auto flex-grow pr-2">
+                <ul id="leaderboard-list" class="space-y-2">
+                    <!-- Leaderboard items will be inserted here by JavaScript -->
+                </ul>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -195,29 +382,36 @@
     const overlayText = document.getElementById('overlay-text');
     const overlaySubtext = document.getElementById('overlay-subtext');
     const startButton = document.getElementById('start-button');
+    const leaderboardButton = document.getElementById('leaderboard-button');
+    const leaderboardModal = document.getElementById('leaderboard-modal');
+    const closeLeaderboardButton = document.getElementById('close-leaderboard');
+    const leaderboardList = document.getElementById('leaderboard-list');
     const effectContainer = document.getElementById('effect-container');
     const backgroundMusic = document.getElementById('background-music');
     const muteButton = document.getElementById('mute-button');
+    const highScoreDisplay = document.getElementById('high-score-display');
+    const highScoreMessage = document.getElementById('high-score-message');
 
     // Game state
     let score = 0;
+    let highScore = 0;
     let gameActive = false;
-    let timeRemaining = 5.0; // Обновлено время
+    let timeRemaining = 5.0;
     let timerInterval = null;
     let timeout = null;
     let seenCards = [];
     let currentCard = null;
     let isRepeated = false;
     let lastAnswerTime = performance.now();
-    let isMuted = false; // New state variable
-    let isFirstTurn = true; // Flag for the very first turn
+    let isMuted = false;
+    let isFirstTurn = true;
 
     // Emojis for the game
     const emojis = ['🍇', '🍉', '🍊', '🍋', '🍌', '🍍', '🍎', '🍐', '🥝', '🥭', '🍒', '🍓', '🥑', '🥕', '🥔', '🌶️', '🌽', '🍄', '🥜'];
 
     // Timer settings
-    const timeLimit = 5000; // 5 секунд
-    const timerUpdateInterval = 250; // 250 milliseconds
+    const timeLimit = 5000;
+    const timerUpdateInterval = 250;
 
     // Start button handler
     startButton.addEventListener('click', startGame);
@@ -234,11 +428,53 @@
         }
     });
 
+    // Leaderboard button handlers
+    leaderboardButton.addEventListener('click', async () => {
+        leaderboardModal.classList.remove('hidden');
+        leaderboardList.innerHTML = '<p class="text-center text-gray-500">Загрузка...</p>';
+        const scores = await window.fetchLeaderboard();
+        displayLeaderboard(scores);
+    });
+
+    closeLeaderboardButton.addEventListener('click', () => {
+        leaderboardModal.classList.add('hidden');
+    });
+
+    function displayLeaderboard(scores) {
+        leaderboardList.innerHTML = '';
+        if (scores.length === 0) {
+            leaderboardList.innerHTML = '<p class="text-center text-gray-500">Пока нет записей. Будьте первым!</p>';
+            return;
+        }
+        scores.forEach((item, index) => {
+            const listItem = document.createElement('li');
+            listItem.classList.add('flex', 'justify-between', 'items-center', 'bg-gray-100', 'p-3', 'rounded-xl', 'shadow-sm');
+
+            const rankText = document.createElement('span');
+            rankText.classList.add('text-lg', 'font-bold', 'text-gray-600');
+            rankText.textContent = `${index + 1}.`;
+
+            const userIdText = document.createElement('span');
+            userIdText.classList.add('text-sm', 'font-mono', 'text-gray-500', 'truncate');
+            userIdText.textContent = item.userId;
+
+            const scoreText = document.createElement('span');
+            scoreText.classList.add('text-xl', 'font-bold', 'text-blue-600');
+            scoreText.textContent = item.score;
+
+            listItem.appendChild(rankText);
+            listItem.appendChild(userIdText);
+            listItem.appendChild(scoreText);
+            leaderboardList.appendChild(listItem);
+        });
+    }
+
+
     // MainButton functionality
     if (window.Telegram) {
         Telegram.WebApp.MainButton.setText("Поделиться счётом");
         Telegram.WebApp.MainButton.onClick(function() {
-            // Show a popup to confirm sharing
+            const shareMessage = `Я накормил Капи и набрал ${score} очков! Сможешь побить мой рекорд ${highScore}?`;
             Telegram.WebApp.showPopup({
                 title: 'Поделиться результатом?',
                 message: `Ваш счёт: ${score}. Хотите отправить его в чат?`,
@@ -248,13 +484,10 @@
                 ]
             }, (buttonId) => {
                 if (buttonId === 'share') {
-                    // Send message with score to the user's chat
-                    const shareMessage = `Я накормил Капи и набрал ${score} очков! Сможешь побить мой рекорд?`;
                     Telegram.WebApp.sendData(JSON.stringify({ text: shareMessage }));
                 }
             });
         });
-        // Hide the button initially
         Telegram.WebApp.MainButton.hide();
     }
 
@@ -288,22 +521,22 @@
         score = 0;
         seenCards = [];
         gameActive = true;
-        isFirstTurn = true; // Reset the flag for a new game
+        isFirstTurn = true;
         overlay.classList.add('opacity-0', 'pointer-events-none');
+        highScoreMessage.classList.add('opacity-0');
         updateScore();
         if (!isMuted) {
             backgroundMusic.play().catch(error => {
                 console.error("Autoplay failed:", error);
             });
         }
-        // Hide the Telegram Main Button when the game starts
         if (window.Telegram) {
             Telegram.WebApp.MainButton.hide();
         }
         gameLoop();
     }
 
-    function endGame(reason) {
+    async function endGame(reason) {
         gameActive = false;
         clearInterval(timerInterval);
         clearTimeout(timeout);
@@ -311,7 +544,21 @@
         overlaySubtext.innerHTML = `Ваш счёт: <span class="font-bold text-blue-600">${score}</span> очков.`;
         startButton.textContent = 'Покормить ещё раз';
         overlay.classList.remove('opacity-0', 'pointer-events-none');
-        // Show the Telegram Main Button when the game ends
+
+        // Check and save high score
+        if (score > window.highScore) {
+            highScore = score;
+            highScoreDisplay.textContent = `Рекорд: ${highScore}`;
+            highScoreMessage.classList.remove('opacity-0');
+            if (window.isAuthReady() && window.getUserId()) {
+                await window.saveHighScore(highScore);
+                // Also save to global leaderboard
+                await window.saveGlobalHighScore(highScore);
+            }
+        } else {
+            highScore = window.highScore;
+        }
+
         if (window.Telegram) {
             Telegram.WebApp.MainButton.show();
         }
@@ -347,11 +594,10 @@
         let animationClass = '';
         let isCorrectRepeatRight = false;
 
-        // Special case for the very first turn.
         if (isFirstTurn) {
             correct = true;
-            animationClass = 'card-animate-out-correct-left'; // Always use the left animation
-            isFirstTurn = false; // Turn off the flag
+            animationClass = 'card-animate-out-correct-left';
+            isFirstTurn = false;
         } else if (direction === 'left' && !isRepeated) {
             correct = true;
             animationClass = 'card-animate-out-correct-left';
@@ -364,16 +610,14 @@
         }
 
         if (correct) {
-            // Add haptic feedback for correct answer
             if (window.Telegram && Telegram.WebApp.HapticFeedback) {
                 Telegram.WebApp.HapticFeedback.impactOccurred('light');
             }
 
-            // Calculate score based on time remaining
             const timeTaken = performance.now() - lastAnswerTime;
 
             let points;
-            const gracePeriod = 300; // in milliseconds
+            const gracePeriod = 300;
             const maxPoints = Math.floor(timeLimit / 5);
 
             if (timeTaken <= gracePeriod) {
@@ -386,10 +630,9 @@
             score += points;
 
             updateScore();
-            createPositiveEffect(); // Call the new function
+            createPositiveEffect();
             cardDisplay.classList.add(animationClass);
 
-            // Set different timeouts for different animations
             const timeoutDuration = isCorrectRepeatRight ? 200 : 100;
 
             setTimeout(() => {
@@ -397,7 +640,6 @@
                 gameLoop();
             }, timeoutDuration);
         } else {
-            // Add haptic feedback for incorrect answer
             if (window.Telegram && Telegram.WebApp.HapticFeedback) {
                 Telegram.WebApp.HapticFeedback.notificationOccurred('error');
             }
