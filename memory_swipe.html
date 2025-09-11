@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memory Swipe</title>
+    <!-- Include Tailwind CSS from CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Telegram Web App API -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+        /* Убраны старые классы анимации, так как они мешали отображению. */
+    </style>
+</head>
+<body class="h-screen w-screen flex items-center justify-center bg-gray-100 p-4">
+
+<!-- Game Container -->
+<div id="game-container" class="w-full max-w-sm h-full max-h-[600px] flex flex-col justify-between items-center bg-white rounded-3xl shadow-2xl p-6 relative overflow-hidden">
+
+    <!-- Header with Score and Timer -->
+    <div class="w-full flex justify-between items-center mb-6">
+        <div id="score-display" class="text-3xl font-bold text-gray-800">Score: 0</div>
+        <div id="timer-display" class="text-3xl font-bold text-red-500">5.0</div>
+    </div>
+
+    <!-- Card Display Area -->
+    <div class="relative w-full h-full flex items-center justify-center mb-12">
+        <div id="card-display" class="text-[12rem] transition-opacity duration-300 ease-in-out"></div>
+    </div>
+
+    <!-- Control Buttons -->
+    <div class="w-full flex justify-center space-x-4 mb-4">
+        <button id="left-button" class="flex-1 bg-red-500 hover:bg-red-600 active:bg-red-700 text-white font-bold py-4 rounded-full shadow-lg transition-all duration-200 transform hover:scale-105 active:scale-100">
+            Left
+        </button>
+        <button id="right-button" class="flex-1 bg-green-500 hover:bg-green-600 active:bg-green-700 text-white font-bold py-4 rounded-full shadow-lg transition-all duration-200 transform hover:scale-105 active:scale-100">
+            Right
+        </button>
+    </div>
+
+    <!-- Overlay for Start/Game Over -->
+    <div id="overlay" class="absolute inset-0 bg-white/90 backdrop-blur-sm flex flex-col items-center justify-center text-center p-8 transition-opacity duration-300">
+        <h2 id="overlay-text" class="text-4xl md:text-5xl font-extrabold text-gray-800 mb-4">Memory Swipe</h2>
+        <p id="overlay-subtext" class="text-lg md:text-xl text-gray-600 mb-8">Swipe left if it's a new card, right if it's a repeat.</p>
+        <button id="start-button" class="bg-blue-600 hover:bg-blue-700 text-white text-2xl font-bold py-4 px-12 rounded-full shadow-lg transition-all duration-300 transform hover:scale-105">
+            Play
+        </button>
+    </div>
+</div>
+
+<script>
+    // Telegram Web Apps integration
+    if (window.Telegram) {
+        Telegram.WebApp.ready();
+        Telegram.WebApp.expand();
+    }
+
+    // DOM elements
+    const gameContainer = document.getElementById('game-container');
+    const scoreDisplay = document.getElementById('score-display');
+    const timerDisplay = document.getElementById('timer-display');
+    const cardDisplay = document.getElementById('card-display');
+    const leftButton = document.getElementById('left-button');
+    const rightButton = document.getElementById('right-button');
+    const overlay = document.getElementById('overlay');
+    const overlayText = document.getElementById('overlay-text');
+    const overlaySubtext = document.getElementById('overlay-subtext');
+    const startButton = document.getElementById('start-button');
+
+    // Game state
+    let score = 0;
+    let gameActive = false;
+    let timeRemaining = 5.0; // Обновлено время
+    let timerInterval = null;
+    let timeout = null;
+    let seenCards = [];
+    let currentCard = null;
+    let isRepeated = false;
+
+    // Emojis for the game
+    const emojis = ['🍇', '🍉', '🍊', '🍋', '🍌', '🍍', '🍎', '🍐', '🥝', '🥭', '🍒', '🍓', '🥑', '🥕', '🥔', '🌶️', '🌽', '🍄', '🥜'];
+
+    // Timer settings
+    const timeLimit = 5000; // 5 секунд
+    const timerUpdateInterval = 250; // 250 milliseconds
+
+    // Start button handler
+    startButton.addEventListener('click', startGame);
+
+    // Input handlers
+    document.addEventListener('keydown', (e) => {
+        if (!gameActive) return;
+        if (e.key === 'ArrowLeft') handleInput('left');
+        if (e.key === 'ArrowRight') handleInput('right');
+    });
+    leftButton.addEventListener('click', () => { if (gameActive) handleInput('left'); });
+    rightButton.addEventListener('click', () => { if (gameActive) handleInput('right'); });
+
+    // Touch swipe handling
+    let touchstartX = 0;
+    let touchendX = 0;
+    gameContainer.addEventListener('touchstart', e => {
+        touchstartX = e.changedTouches[0].screenX;
+    }, false);
+    gameContainer.addEventListener('touchend', e => {
+        touchendX = e.changedTouches[0].screenX;
+        handleGesture();
+    }, false);
+    function handleGesture() {
+        if (!gameActive) return;
+        if (touchendX < touchstartX - 50) handleInput('left');
+        if (touchendX > touchstartX + 50) handleInput('right');
+    }
+
+    // Main game functions
+    function startGame() {
+        score = 0;
+        seenCards = [];
+        gameActive = true;
+        // Делаем оверлей прозрачным и отключаем события, чтобы показать игру
+        overlay.classList.add('opacity-0', 'pointer-events-none');
+        updateScore();
+        gameLoop();
+    }
+
+    function endGame() {
+        gameActive = false;
+        clearInterval(timerInterval);
+        clearTimeout(timeout);
+        overlayText.textContent = 'Game Over';
+        overlaySubtext.innerHTML = `Final Score: <span class="font-bold text-blue-600">${score}</span>`;
+        startButton.textContent = 'Play Again';
+        // Возвращаем оверлей на экран
+        overlay.classList.remove('opacity-0', 'pointer-events-none');
+    }
+
+    function handleInput(direction) {
+        let correct = false;
+        if (direction === 'left' && !isRepeated) {
+            correct = true;
+        } else if (direction === 'right' && isRepeated) {
+            correct = true;
+        }
+
+        if (correct) {
+            score++;
+            updateScore();
+            gameLoop();
+        } else {
+            endGame();
+        }
+    }
+
+    function gameLoop() {
+        if (!gameActive) return;
+
+        // Reset timer
+        clearInterval(timerInterval);
+        clearTimeout(timeout);
+        timeRemaining = 5.0; // Обновлено время
+        updateTimer();
+
+        // Randomly select next card
+        const shouldRepeat = seenCards.length > 0 && Math.random() < 0.5;
+        isRepeated = shouldRepeat;
+        if (shouldRepeat) {
+            currentCard = seenCards[Math.floor(Math.random() * seenCards.length)];
+        } else {
+            const availableEmojis = emojis.filter(e => !seenCards.includes(e));
+            if (availableEmojis.length === 0) {
+                endGame(); // All cards have been seen, end game.
+                return;
+            }
+            currentCard = availableEmojis[Math.floor(Math.random() * availableEmojis.length)];
+            seenCards.push(currentCard);
+        }
+
+        // Обновляем карту: сначала делаем её прозрачной, затем меняем контент и плавно показываем
+        cardDisplay.style.opacity = '0';
+        setTimeout(() => {
+            cardDisplay.textContent = currentCard;
+            cardDisplay.style.opacity = '1';
+        }, 10); // Небольшая задержка, чтобы анимация сработала корректно
+
+        // Start new timer
+        let startTime = performance.now();
+        timerInterval = setInterval(() => {
+            const elapsedTime = performance.now() - startTime;
+            timeRemaining = Math.max(0, 5 - (elapsedTime / 1000)); // Обновлено время
+            updateTimer();
+        }, timerUpdateInterval);
+
+        // Timeout for incorrect answer
+        timeout = setTimeout(() => {
+            if (gameActive) {
+                endGame();
+            }
+        }, timeLimit);
+    }
+
+    function updateScore() {
+        scoreDisplay.textContent = `Score: ${score}`;
+    }
+
+    function updateTimer() {
+        timerDisplay.textContent = timeRemaining.toFixed(1);
+    }
+</script>
+
+</body>
+</html>
