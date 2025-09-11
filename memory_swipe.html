@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Memory Swipe</title>
+    <title>Пир Капибары</title>
     <!-- Include Tailwind CSS from CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Telegram Web App API -->
@@ -33,23 +33,23 @@
         }
 
         .card-animate-in {
-            animation: fly-in 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+            animation: fly-in 0.17s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
         }
 
-        /* Animation for correct answer, flying out to the left */
-        @keyframes fly-out-left {
+        /* New animation for correct answer, flying straight down */
+        @keyframes fly-out-down {
             from {
                 transform: translate(0, 0) scale(1);
                 opacity: 1;
             }
             to {
-                transform: translate(-100%, 100%) scale(0.5);
+                transform: translate(0, 100%) scale(0.5);
                 opacity: 0;
             }
         }
 
         .card-animate-out-correct-left {
-            animation: fly-out-left 0.3s cubic-bezier(0.55, 0.085, 0.68, 0.53) forwards;
+            animation: fly-out-down 0.1s cubic-bezier(0.55, 0.085, 0.68, 0.53) forwards;
         }
 
         /* Animation for correct answer, flying out to the right */
@@ -64,28 +64,69 @@
             }
         }
 
-        .card-animate-out-correct-right {
-            animation: fly-out-right 0.3s cubic-bezier(0.55, 0.085, 0.68, 0.53) forwards;
-        }
-
-        /* Animation for incorrect answer (burn-out) */
-        @keyframes burn-out {
+        /* New animation for correct right answer (burst) */
+        @keyframes burst-out-correct {
             0% {
                 transform: scale(1) rotate(0deg);
                 opacity: 1;
                 filter: blur(0px);
             }
             100% {
-                transform: scale(2) rotate(30deg);
+                transform: scale(2.5) rotate(720deg);
                 opacity: 0;
-                filter: blur(8px);
+                filter: blur(10px);
+            }
+        }
+
+        .card-animate-out-correct-right-burst {
+            animation: burst-out-correct 0.2s ease-in forwards;
+        }
+
+        /* New animation for incorrect answer */
+        @keyframes fade-out-incorrect {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(0.7);
+                opacity: 0;
             }
         }
 
         .card-animate-out-incorrect {
-            animation: burn-out 0.4s ease-out forwards;
+            animation: fade-out-incorrect 0.15s ease-out forwards;
         }
 
+        /* Positive particle animations */
+        @keyframes star-burst-small {
+            from { transform: translate(0, 0) scale(0); opacity: 1; }
+            to { transform: translate(var(--x), var(--y)) scale(1.5); opacity: 0; }
+        }
+        @keyframes star-burst-medium {
+            from { transform: translate(0, 0) scale(0); opacity: 1; }
+            to { transform: translate(var(--x), var(--y)) scale(1.2); opacity: 0; }
+        }
+        @keyframes star-burst-large {
+            from { transform: translate(0, 0) scale(0); opacity: 1; }
+            to { transform: translate(var(--x), var(--y)) scale(1.8); opacity: 0; }
+        }
+
+        .particle {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            will-change: transform, opacity;
+        }
+
+        /* New styling for game container with image */
+        #game-container {
+            background-image: url('https://media.istockphoto.com/id/1160720443/vector/abstract-simple-geometric-vector-seamless-pattern-with-gold-line-texture-on-white-background.webp?b=1&s=612x612&w=0&k=20&c=ejtl-XXAFVsHcjNbaxdiT4xzzs5bGtA_CUYkO9ZQ-Jk=');
+            background-size: cover;
+            background-position: center;
+        }
     </style>
 </head>
 <body class="h-screen w-screen flex items-center justify-center bg-gray-100 p-4">
@@ -93,36 +134,48 @@
 <!-- Game Container -->
 <div id="game-container" class="w-full max-w-sm h-full max-h-[600px] flex flex-col justify-between items-center bg-white rounded-3xl shadow-2xl p-6 relative overflow-hidden">
 
-    <!-- Header with Score and Timer -->
-    <div class="w-full flex justify-between items-center mb-6">
-        <div id="score-display" class="text-3xl font-bold text-gray-800">Score: 0</div>
-        <div id="timer-display" class="text-3xl font-bold text-red-500">5.0</div>
+    <!-- Header with Mute, Score and Timer -->
+    <div class="w-full flex justify-between items-start mb-6">
+        <!-- Left-aligned container for mute button -->
+        <button id="mute-button" class="bg-gray-200 hover:bg-gray-300 text-gray-700 p-3 rounded-full shadow-md transition-colors duration-200">
+            🔊
+        </button>
+        <!-- Right-aligned container for score and timer -->
+        <div class="flex flex-col items-end">
+            <div id="score-display" class="text-3xl font-bold text-gray-800">Счёт: 0</div>
+            <div id="timer-display" class="text-xl font-bold text-red-500">5.0</div>
+        </div>
     </div>
 
     <!-- Card Display Area -->
     <div class="relative w-full h-full flex items-center justify-center mb-12">
         <div id="card-display" class="text-[12rem]"></div>
+        <!-- Container for positive effects -->
+        <div id="effect-container" class="absolute inset-0 z-10 pointer-events-none"></div>
     </div>
 
     <!-- Control Buttons -->
     <div class="w-full flex justify-center space-x-4 mb-4">
         <button id="left-button" class="flex-1 bg-red-500 hover:bg-red-600 active:bg-red-700 text-white font-bold py-4 rounded-full shadow-lg transition-all duration-200 transform hover:scale-105 active:scale-100">
-            Left
+            Новый
         </button>
         <button id="right-button" class="flex-1 bg-green-500 hover:bg-green-600 active:bg-green-700 text-white font-bold py-4 rounded-full shadow-lg transition-all duration-200 transform hover:scale-105 active:scale-100">
-            Right
+            Повтор
         </button>
     </div>
 
     <!-- Overlay for Start/Game Over -->
-    <div id="overlay" class="absolute inset-0 bg-white/90 backdrop-blur-sm flex flex-col items-center justify-center text-center p-8 transition-opacity duration-300">
-        <h2 id="overlay-text" class="text-4xl md:text-5xl font-extrabold text-gray-800 mb-4">Memory Swipe</h2>
-        <p id="overlay-subtext" class="text-lg md:text-xl text-gray-600 mb-8">Swipe left if it's a new card, right if it's a repeat.</p>
+    <div id="overlay" class="absolute inset-0 bg-white/90 flex flex-col items-center justify-center text-center p-8 transition-opacity duration-300 z-20">
+        <h2 id="overlay-text" class="text-4xl md:text-5xl font-extrabold text-gray-800 mb-4">Пир Капибары</h2>
+        <p id="overlay-subtext" class="text-lg md:text-xl text-gray-600 mb-8">Проведи влево, если это новый фрукт, вправо — если он уже был.</p>
         <button id="start-button" class="bg-blue-600 hover:bg-blue-700 text-white text-2xl font-bold py-4 px-12 rounded-full shadow-lg transition-all duration-300 transform hover:scale-105">
-            Play
+            Накормить Капи
         </button>
     </div>
 </div>
+
+<!-- Background Music -->
+<audio id="background-music" src="https://storage.googleapis.com/corpusant-app-public/riffs/4213a202-c6e6-4ab5-987e-6f8c4aeaedf9/audio/ce8a21ee-1f28-465e-b3da-598e2e43b702.m4a" loop></audio>
 
 <script>
     // Telegram Web Apps integration
@@ -142,6 +195,9 @@
     const overlayText = document.getElementById('overlay-text');
     const overlaySubtext = document.getElementById('overlay-subtext');
     const startButton = document.getElementById('start-button');
+    const effectContainer = document.getElementById('effect-container');
+    const backgroundMusic = document.getElementById('background-music');
+    const muteButton = document.getElementById('mute-button');
 
     // Game state
     let score = 0;
@@ -152,6 +208,9 @@
     let seenCards = [];
     let currentCard = null;
     let isRepeated = false;
+    let lastAnswerTime = performance.now();
+    let isMuted = false; // New state variable
+    let isFirstTurn = true; // Flag for the very first turn
 
     // Emojis for the game
     const emojis = ['🍇', '🍉', '🍊', '🍋', '🍌', '🍍', '🍎', '🍐', '🥝', '🥭', '🍒', '🍓', '🥑', '🥕', '🥔', '🌶️', '🌽', '🍄', '🥜'];
@@ -162,6 +221,18 @@
 
     // Start button handler
     startButton.addEventListener('click', startGame);
+    // Mute button handler
+    muteButton.addEventListener('click', () => {
+        if (backgroundMusic.paused) {
+            backgroundMusic.play();
+            muteButton.textContent = '🔊';
+            isMuted = false;
+        } else {
+            backgroundMusic.pause();
+            muteButton.textContent = '🔇';
+            isMuted = true;
+        }
+    });
 
     // Input handlers
     document.addEventListener('keydown', (e) => {
@@ -193,49 +264,116 @@
         score = 0;
         seenCards = [];
         gameActive = true;
+        isFirstTurn = true; // Reset the flag for a new game
         overlay.classList.add('opacity-0', 'pointer-events-none');
         updateScore();
+        if (!isMuted) {
+            backgroundMusic.play().catch(error => {
+                console.error("Autoplay failed:", error);
+            });
+        }
         gameLoop();
     }
 
-    function endGame() {
+    function endGame(reason) {
         gameActive = false;
         clearInterval(timerInterval);
         clearTimeout(timeout);
-        overlayText.textContent = 'Game Over';
-        overlaySubtext.innerHTML = `Final Score: <span class="font-bold text-blue-600">${score}</span>`;
-        startButton.textContent = 'Play Again';
+        overlayText.textContent = reason;
+        overlaySubtext.innerHTML = `Ваш счёт: <span class="font-bold text-blue-600">${score}</span> очков.`;
+        startButton.textContent = 'Покормить ещё раз';
         overlay.classList.remove('opacity-0', 'pointer-events-none');
+    }
+
+    function createPositiveEffect() {
+        const particleCount = 10;
+        const particles = ['⭐', '✨', '🌟', '💫', '🌈'];
+        for (let i = 0; i < particleCount; i++) {
+            const particle = document.createElement('div');
+            particle.textContent = particles[Math.floor(Math.random() * particles.length)];
+            particle.classList.add('particle', 'text-4xl');
+
+            const randomX = (Math.random() - 0.5) * 200;
+            const randomY = (Math.random() - 0.5) * 200;
+            const duration = 0.8 + Math.random() * 0.4;
+            const animationClass = ['star-burst-small', 'star-burst-medium', 'star-burst-large'][Math.floor(Math.random() * 3)];
+
+            particle.style.setProperty('--x', `${randomX}px`);
+            particle.style.setProperty('--y', `${randomY}px`);
+            particle.style.animation = `${animationClass} ${duration}s ease-out forwards`;
+
+            effectContainer.appendChild(particle);
+
+            setTimeout(() => {
+                particle.remove();
+            }, duration * 1000);
+        }
     }
 
     function handleInput(direction) {
         let correct = false;
         let animationClass = '';
+        let isCorrectRepeatRight = false;
 
-        if (direction === 'left' && !isRepeated) {
+        // Special case for the very first turn.
+        if (isFirstTurn) {
+            correct = true;
+            animationClass = 'card-animate-out-correct-left'; // Always use the left animation
+            isFirstTurn = false; // Turn off the flag
+        } else if (direction === 'left' && !isRepeated) {
             correct = true;
             animationClass = 'card-animate-out-correct-left';
         } else if (direction === 'right' && isRepeated) {
             correct = true;
-            animationClass = 'card-animate-out-correct-right';
+            isCorrectRepeatRight = true;
+            animationClass = 'card-animate-out-correct-right-burst';
         } else {
             animationClass = 'card-animate-out-incorrect';
         }
 
         if (correct) {
-            score++;
+            // Calculate score based on time remaining
+            const timeTaken = performance.now() - lastAnswerTime;
+
+            let points;
+            const gracePeriod = 300; // in milliseconds
+            const maxPoints = Math.floor(timeLimit / 5);
+
+            if (timeTaken <= gracePeriod) {
+                points = maxPoints;
+            } else {
+                const timeRemaining = Math.max(0, timeLimit - timeTaken);
+                points = Math.floor(timeRemaining / 5);
+            }
+
+            score += points;
+
             updateScore();
+            createPositiveEffect(); // Call the new function
             cardDisplay.classList.add(animationClass);
+
+            // Set different timeouts for different animations
+            const timeoutDuration = isCorrectRepeatRight ? 200 : 100;
+
             setTimeout(() => {
                 cardDisplay.classList.remove(animationClass);
                 gameLoop();
-            }, 300);
+            }, timeoutDuration);
         } else {
-            cardDisplay.classList.add(animationClass);
+            animationClass = 'card-animate-out-incorrect';
+            let reason = '';
+            if (direction === 'left' && isRepeated) {
+                reason = 'Я это уже ела!';
+            } else if (direction === 'right' && !isRepeated) {
+                reason = 'Эй! Я это еще не пробовала!';
+            } else {
+                reason = 'Капи уснула...';
+            }
+
             setTimeout(() => {
-                endGame();
+                endGame(reason);
                 cardDisplay.classList.remove(animationClass);
-            }, 400); // Increased timeout to match new animation duration
+            }, 150);
         }
     }
 
@@ -246,6 +384,7 @@
         clearTimeout(timeout);
         timeRemaining = 5.0;
         updateTimer();
+        lastAnswerTime = performance.now();
 
         const shouldRepeat = seenCards.length > 0 && Math.random() < 0.5;
         isRepeated = shouldRepeat;
@@ -254,7 +393,7 @@
         } else {
             const availableEmojis = emojis.filter(e => !seenCards.includes(e));
             if (availableEmojis.length === 0) {
-                endGame();
+                endGame('Капи наелась!');
                 return;
             }
             currentCard = availableEmojis[Math.floor(Math.random() * availableEmojis.length)];
@@ -265,7 +404,7 @@
         cardDisplay.classList.add('card-animate-in');
         setTimeout(() => {
             cardDisplay.classList.remove('card-animate-in');
-        }, 500);
+        }, 170);
 
         let startTime = performance.now();
         timerInterval = setInterval(() => {
@@ -276,19 +415,18 @@
 
         timeout = setTimeout(() => {
             if (gameActive) {
-                endGame();
+                endGame('Капи уснула...');
             }
         }, timeLimit);
     }
 
     function updateScore() {
-        scoreDisplay.textContent = `Score: ${score}`;
+        scoreDisplay.textContent = `Счёт: ${score}`;
     }
 
     function updateTimer() {
         timerDisplay.textContent = timeRemaining.toFixed(1);
     }
 </script>
-
 </body>
 </html>
