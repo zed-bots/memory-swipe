@@ -88,7 +88,7 @@ const appId = firebaseConfig.appId;
 
                         isAuthReady = true;
                         console.log(`User authenticated with ID: ${userId}`);
-                        document.getElementById('user-id-display').textContent = `ID пользователя: ${userName} ID чата: %{chatInstance}`;
+                        document.getElementById('user-id-display').textContent = `ID пользователя: ${userName} ID чата: ${chatInstance}`;
                         await loadHighScore();
 
                         // Show/hide leaderboard button based on chat instance availability
