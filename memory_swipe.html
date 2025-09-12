@@ -16,7 +16,7 @@
         import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Firebase-related global variables provided by the environment
-const firebaseConfig = {
+        const firebaseConfig = {
   apiKey: "AIzaSyDQXqft_-EFfA58xUuhKKbCl8HnNx00ihg",
   authDomain: "memory-swipe.firebaseapp.com",
   databaseURL: "https://memory-swipe-default-rtdb.europe-west1.firebasedatabase.app",
@@ -33,6 +33,7 @@ const appId = firebaseConfig.appId;
         let db = null;
         let auth = null;
         let userId = null;
+        let userName = null;
         let isAuthReady = false;
 
         async function setupFirebase() {
@@ -52,6 +53,7 @@ const appId = firebaseConfig.appId;
                 window.doc = doc;
                 window.appId = appId;
                 window.getUserId = () => userId;
+                window.getUserName = () => userName;
                 window.isAuthReady = () => isAuthReady;
 
                 // Authenticate the user using the provided custom token or anonymously
@@ -65,13 +67,22 @@ const appId = firebaseConfig.appId;
                 onAuthStateChanged(auth, async (user) => {
                     if (user) {
                         userId = user.uid;
+                        // Get Telegram username if available
+                        if (window.Telegram && Telegram.WebApp.initDataUnsafe.user) {
+                            const telegramUser = Telegram.WebApp.initDataUnsafe.user;
+                            userName = telegramUser.username || telegramUser.first_name + (telegramUser.last_name ? ` ${telegramUser.last_name}` : '');
+                        } else {
+                            userName = userId.slice(0, 8); // Use a truncated ID as a fallback name
+                        }
+
                         isAuthReady = true;
                         console.log(`User authenticated with ID: ${userId}`);
-                        document.getElementById('user-id-display').textContent = `ID пользователя: ${userId}`;
+                        document.getElementById('user-id-display').textContent = `ID пользователя: ${userName}`;
                         await loadHighScore();
                     } else {
                         // Handle case where authentication fails or user logs out
                         userId = null;
+                        userName = "Анонимный";
                         isAuthReady = true;
                         document.getElementById('user-id-display').textContent = `ID пользователя: Анонимный`;
                         console.log("No user is signed in.");
@@ -144,7 +155,7 @@ const appId = firebaseConfig.appId;
             try {
                 // Save the score to a publicly accessible collection
                 const docRef = doc(window.db, `artifacts/${window.appId}/public/data/global_high_scores`, window.getUserId());
-                await setDoc(docRef, { score: score, userId: window.getUserId(), timestamp: new Date() });
+                await setDoc(docRef, { score: score, userId: window.getUserId(), userName: window.getUserName(), timestamp: new Date() });
                 console.log("Global high score saved successfully.");
             } catch (error) {
                 console.error("Error saving global high score:", error);
@@ -305,14 +316,12 @@ const appId = firebaseConfig.appId;
 <body class="h-screen w-screen flex items-center justify-center bg-gray-100 p-4">
 
 <!-- Game Container -->
-<div id="game-container"
-     class="w-full max-w-sm h-full max-h-[600px] flex flex-col justify-between items-center bg-white rounded-3xl shadow-2xl p-6 relative overflow-hidden">
+<div id="game-container" class="w-full max-w-sm h-full max-h-[600px] flex flex-col justify-between items-center bg-white rounded-3xl shadow-2xl p-6 relative overflow-hidden">
 
     <!-- Header with Mute, Score and Timer -->
     <div class="w-full flex justify-between items-start mb-6">
         <!-- Left-aligned container for mute button -->
-        <button id="mute-button"
-                class="bg-gray-200 hover:bg-gray-300 text-gray-700 p-3 rounded-full shadow-md transition-colors duration-200">
+        <button id="mute-button" class="bg-gray-200 hover:bg-gray-300 text-gray-700 p-3 rounded-full shadow-md transition-colors duration-200">
             🔊
         </button>
         <!-- Right-aligned container for score and timer -->
@@ -331,47 +340,38 @@ const appId = firebaseConfig.appId;
 
     <!-- Control Buttons -->
     <div class="w-full flex justify-center space-x-4 mb-4">
-        <button id="left-button"
-                class="flex-1 bg-red-500 hover:bg-red-600 active:bg-red-700 text-white font-bold py-4 rounded-full shadow-lg transition-all duration-200 transform hover:scale-105 active:scale-100">
+        <button id="left-button" class="flex-1 bg-red-500 hover:bg-red-600 active:bg-red-700 text-white font-bold py-4 rounded-full shadow-lg transition-all duration-200 transform hover:scale-105 active:scale-100">
             Новый
         </button>
-        <button id="right-button"
-                class="flex-1 bg-green-500 hover:bg-green-600 active:bg-green-700 text-white font-bold py-4 rounded-full shadow-lg transition-all duration-200 transform hover:scale-105 active:scale-100">
+        <button id="right-button" class="flex-1 bg-green-500 hover:bg-green-600 active:bg-green-700 text-white font-bold py-4 rounded-full shadow-lg transition-all duration-200 transform hover:scale-105 active:scale-100">
             Повтор
         </button>
     </div>
 
     <!-- Overlay for Start/Game Over -->
-    <div id="overlay"
-         class="absolute inset-0 bg-white/90 flex flex-col items-center justify-center text-center p-8 transition-opacity duration-300 z-20">
+    <div id="overlay" class="absolute inset-0 bg-white/90 flex flex-col items-center justify-center text-center p-8 transition-opacity duration-300 z-20">
         <h2 id="overlay-text" class="text-4xl md:text-5xl font-extrabold text-gray-800 mb-4">Пир Капибары</h2>
-        <p id="overlay-subtext" class="text-lg md:text-xl text-gray-600 mb-8">Проведи влево, если это новый фрукт,
-            вправо — если он уже был.</p>
+        <p id="overlay-subtext" class="text-lg md:text-xl text-gray-600 mb-8">Проведи влево, если это новый фрукт, вправо — если он уже был.</p>
         <!-- High score display on the overlay -->
         <div id="high-score-container" class="text-center text-gray-700 mb-6">
             <p id="high-score-display" class="text-2xl font-bold mb-2">Рекорд: 0</p>
-            <p id="high-score-message"
-               class="text-lg font-semibold text-green-600 opacity-0 transition-opacity duration-300">Новый рекорд!</p>
+            <p id="high-score-message" class="text-lg font-semibold text-green-600 opacity-0 transition-opacity duration-300">Новый рекорд!</p>
         </div>
-        <button id="start-button"
-                class="bg-blue-600 hover:bg-blue-700 text-white text-2xl font-bold py-4 px-12 rounded-full shadow-lg transition-all duration-300 transform hover:scale-105">
+        <button id="start-button" class="bg-blue-600 hover:bg-blue-700 text-white text-2xl font-bold py-4 px-12 rounded-full shadow-lg transition-all duration-300 transform hover:scale-105">
             Накормить Капи
         </button>
-        <button id="leaderboard-button"
-                class="mt-4 bg-gray-500 hover:bg-gray-600 text-white text-lg font-bold py-3 px-8 rounded-full shadow-lg transition-all duration-300 transform hover:scale-105">
+        <button id="leaderboard-button" class="mt-4 bg-gray-500 hover:bg-gray-600 text-white text-lg font-bold py-3 px-8 rounded-full shadow-lg transition-all duration-300 transform hover:scale-105">
             Таблица лидеров
         </button>
         <p id="user-id-display" class="text-xs text-gray-400 mt-4"></p>
     </div>
 
     <!-- Leaderboard Modal -->
-    <div id="leaderboard-modal"
-         class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-30">
+    <div id="leaderboard-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-30">
         <div class="bg-white rounded-3xl shadow-2xl p-6 w-11/12 max-w-md max-h-[80%] flex flex-col">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-2xl font-bold text-gray-800">Таблица лидеров</h3>
-                <button id="close-leaderboard" class="text-gray-500 hover:text-gray-700 text-3xl font-bold">&times;
-                </button>
+                <button id="close-leaderboard" class="text-gray-500 hover:text-gray-700 text-3xl font-bold">&times;</button>
             </div>
             <div id="leaderboard-list-container" class="overflow-y-auto flex-grow pr-2">
                 <ul id="leaderboard-list" class="space-y-2">
@@ -383,9 +383,7 @@ const appId = firebaseConfig.appId;
 </div>
 
 <!-- Background Music -->
-<audio id="background-music"
-       src="https://storage.googleapis.com/corpusant-app-public/riffs/4213a202-c6e6-4ab5-987e-6f8c4aeaedf9/audio/ce8a21ee-1f28-465e-b3da-598e2e43b702.m4a"
-       loop></audio>
+<audio id="background-music" src="https://storage.googleapis.com/corpusant-app-public/riffs/4213a202-c6e6-4ab5-987e-6f8c4aeaedf9/audio/ce8a21ee-1f28-465e-b3da-598e2e43b702.m4a" loop></audio>
 
 <script>
     // Telegram Web Apps integration
@@ -477,16 +475,17 @@ const appId = firebaseConfig.appId;
             rankText.classList.add('text-lg', 'font-bold', 'text-gray-600');
             rankText.textContent = `${index + 1}.`;
 
-            const userIdText = document.createElement('span');
-            userIdText.classList.add('text-sm', 'font-mono', 'text-gray-500', 'truncate');
-            userIdText.textContent = item.userId;
+            const userNameDisplay = item.userName || item.userId; // Use userName if available, otherwise fallback to userId
+            const userText = document.createElement('span');
+            userText.classList.add('text-sm', 'font-mono', 'text-gray-500', 'truncate');
+            userText.textContent = userNameDisplay;
 
             const scoreText = document.createElement('span');
             scoreText.classList.add('text-xl', 'font-bold', 'text-blue-600');
             scoreText.textContent = item.score;
 
             listItem.appendChild(rankText);
-            listItem.appendChild(userIdText);
+            listItem.appendChild(userText);
             listItem.appendChild(scoreText);
             leaderboardList.appendChild(listItem);
         });
