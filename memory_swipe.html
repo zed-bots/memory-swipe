@@ -91,8 +91,8 @@ const appId = firebaseConfig.appId;
                         document.getElementById('user-id-display').textContent = `ID пользователя: ${userName}`;
                         await loadHighScore();
 
-                        // Show/hide leaderboard button based on chat type
-                        if (chatType === 'group' || chatType === 'supergroup' || chatType === 'channel') {
+                        // Show/hide leaderboard button based on chat instance availability
+                        if (chatInstance) {
                             chatLeaderboardButton.classList.remove('hidden');
                         } else {
                             chatLeaderboardButton.classList.add('hidden');
