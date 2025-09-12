@@ -36,6 +36,7 @@ const appId = firebaseConfig.appId;
         let userName = null;
         let isAuthReady = false;
         let chatInstance = null;
+        let chatType = null;
 
         async function setupFirebase() {
             try {
@@ -46,9 +47,12 @@ const appId = firebaseConfig.appId;
                 db = getFirestore(app);
                 auth = getAuth(app);
 
-                // Check for chat instance, available in group chats
+                // Check for chat instance and type, available in group chats
                 if (window.Telegram && Telegram.WebApp.initDataUnsafe.chat_instance) {
                     chatInstance = Telegram.WebApp.initDataUnsafe.chat_instance;
+                }
+                if (window.Telegram && Telegram.WebApp.initDataUnsafe.chat && Telegram.WebApp.initDataUnsafe.chat.type) {
+                    chatType = Telegram.WebApp.initDataUnsafe.chat.type;
                 }
 
                 // Expose Firebase and utility functions to the global scope *after* initialization
@@ -86,8 +90,9 @@ const appId = firebaseConfig.appId;
                         console.log(`User authenticated with ID: ${userId}`);
                         document.getElementById('user-id-display').textContent = `ID пользователя: ${userName}`;
                         await loadHighScore();
-                        // Show/hide leaderboard button based on chat instance availability
-                        if (chatInstance) {
+
+                        // Show/hide leaderboard button based on chat type
+                        if (chatType === 'group' || chatType === 'supergroup' || chatType === 'channel') {
                             chatLeaderboardButton.classList.remove('hidden');
                         } else {
                             chatLeaderboardButton.classList.add('hidden');
@@ -174,7 +179,7 @@ const appId = firebaseConfig.appId;
                     timestamp: new Date()
                 };
 
-                // Save to global leaderboard (path fixed)
+                // Save to global leaderboard
                 const globalDocRef = doc(window.db, `artifacts/${window.appId}/public/data/global_scores`, window.getUserId());
                 await setDoc(globalDocRef, userLeaderboardData, { merge: true });
                 console.log("Global leaderboard score saved successfully.");
