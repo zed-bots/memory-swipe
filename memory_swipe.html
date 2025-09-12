@@ -67,6 +67,10 @@ const appId = firebaseConfig.appId;
                 window.isAuthReady = () => isAuthReady;
                 window.getChatInstance = () => chatInstance;
 
+                // Log chat instance for debugging
+                console.log(`Chat Instance: ${chatInstance || 'Not available'}`);
+                console.log(`Chat Type: ${chatType || 'Not available'}`);
+
                 // Authenticate the user using the provided custom token or anonymously
                 if (initialAuthToken) {
                     await signInWithCustomToken(auth, initialAuthToken);
@@ -88,15 +92,8 @@ const appId = firebaseConfig.appId;
 
                         isAuthReady = true;
                         console.log(`User authenticated with ID: ${userId}`);
-                        document.getElementById('user-id-display').textContent = `ID пользователя: ${userName} ID чата: ${chatInstance}`;
+                        document.getElementById('user-id-display').textContent = `ID пользователя: ${userName}`;
                         await loadHighScore();
-
-                        // Show/hide leaderboard button based on chat instance availability
-                        if (chatInstance) {
-                            chatLeaderboardButton.classList.remove('hidden');
-                        } else {
-                            chatLeaderboardButton.classList.add('hidden');
-                        }
                     } else {
                         // Handle case where authentication fails or user logs out
                         userId = null;
@@ -187,12 +184,18 @@ const appId = firebaseConfig.appId;
                 // Save to chat leaderboard if chat instance exists
                 const chatInstance = window.getChatInstance();
                 if (chatInstance) {
-                    const chatDocRef = doc(window.db, `artifacts/${window.appId}/public/data/chat_leaderboards/${chatInstance}/scores`, window.getUserId());
-                    await setDoc(chatDocRef, userLeaderboardData, { merge: true });
-                    console.log("Chat leaderboard score saved successfully.");
+                    try {
+                        const chatDocRef = doc(window.db, `artifacts/${window.appId}/public/data/chat_leaderboards/${chatInstance}/scores`, window.getUserId());
+                        await setDoc(chatDocRef, userLeaderboardData, { merge: true });
+                        console.log("Chat leaderboard score saved successfully.");
+                    } catch (error) {
+                        console.error("Error saving chat leaderboard score. Possible permissions issue:", error);
+                    }
+                } else {
+                    console.warn("Chat instance is not available. Skipping chat leaderboard save.");
                 }
             } catch (error) {
-                console.error("Error saving leaderboard scores:", error);
+                console.error("Error saving global leaderboard scores:", error);
             }
         };
 
@@ -203,8 +206,8 @@ const appId = firebaseConfig.appId;
             }
             const chatInstance = window.getChatInstance();
             if (!isGlobal && !chatInstance) {
-                console.error("Not in a group chat, cannot fetch chat leaderboard.");
-                return [];
+                console.warn("Not in a group chat, cannot fetch chat leaderboard.");
+                return null; // Return null to indicate the feature is not available
             }
             try {
                 const collectionPath = isGlobal ? `artifacts/${window.appId}/public/data/global_scores` : `artifacts/${window.appId}/public/data/chat_leaderboards/${chatInstance}/scores`;
@@ -398,7 +401,6 @@ const appId = firebaseConfig.appId;
             Накормить Капи
         </button>
         <div class="flex flex-col mt-4 space-y-2 w-full max-w-xs">
-            <!-- The button is visible by default now. The script will hide it if needed. -->
             <button id="chat-leaderboard-button" class="bg-gray-500 hover:bg-gray-600 text-white text-lg font-bold py-3 px-8 rounded-full shadow-lg transition-all duration-300 transform hover:scale-105">
                 Таблица лидеров чата
             </button>
@@ -498,6 +500,13 @@ const appId = firebaseConfig.appId;
     chatLeaderboardButton.addEventListener('click', async () => {
         leaderboardTitle.textContent = 'Таблица лидеров чата';
         leaderboardModal.classList.remove('hidden');
+
+        const chatInstance = window.getChatInstance();
+        if (!chatInstance) {
+            leaderboardList.innerHTML = '<p class="text-center text-gray-500">Эта таблица лидеров доступна только в групповых чатах.</p>';
+            return;
+        }
+
         leaderboardList.innerHTML = '<p class="text-center text-gray-500">Загрузка...</p>';
         const scores = await window.fetchLeaderboard(false);
         displayLeaderboard(scores);
@@ -517,6 +526,11 @@ const appId = firebaseConfig.appId;
 
     function displayLeaderboard(scores) {
         leaderboardList.innerHTML = '';
+        if (scores === null) {
+             // This case is handled in the click handler for chat leaderboard
+             // and should not be reached for the global leaderboard
+             return;
+        }
         if (scores.length === 0) {
             leaderboardList.innerHTML = '<p class="text-center text-gray-500">Пока нет записей. Будьте первым!</p>';
             return;
