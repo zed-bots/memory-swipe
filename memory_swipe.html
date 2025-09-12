@@ -88,7 +88,7 @@ const appId = firebaseConfig.appId;
 
                         isAuthReady = true;
                         console.log(`User authenticated with ID: ${userId}`);
-                        document.getElementById('user-id-display').textContent = `ID пользователя: ${userName}`;
+                        document.getElementById('user-id-display').textContent = `ID пользователя: ${userName} %{chatInstance}`;
                         await loadHighScore();
 
                         // Show/hide leaderboard button based on chat instance availability
@@ -473,7 +473,7 @@ const appId = firebaseConfig.appId;
     let isFirstTurn = true;
 
     // Emojis for the game
-    const emojis = ['🍇', '🍉', '🍊', '🍋', '🍌', '🍍', '🍎', '🍐', '🥝', '🥭', '🍒', '🍓', '🥑', '🥕', '🥔', '🌶️', '🌽', '🍄', '🥜'];
+    const emojis = ['🍇', '🍉', '🍊', '🍋', '🍌', '🍍', '🍎', '🍐', '🥝', '🥭', '🍒', '🍓', '🥑', '🥕', '🥔', '🌶️', '🌽', '🥜'];
 
     // Timer settings
     const timeLimit = 5000;
