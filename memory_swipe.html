@@ -72,7 +72,7 @@ const appId = firebaseConfig.appId;
                             const telegramUser = Telegram.WebApp.initDataUnsafe.user;
                             userName = telegramUser.username || telegramUser.first_name + (telegramUser.last_name ? ` ${telegramUser.last_name}` : '');
                         } else {
-                            userName = userId.slice(0, 8); // Use a truncated ID as a fallback name
+                            userName = userId.slice(0, 0); // Use a truncated ID as a fallback name
                         }
 
                         isAuthReady = true;
@@ -493,22 +493,12 @@ const appId = firebaseConfig.appId;
 
 
     // MainButton functionality
-    if (window.Telegram) {
+    if (window.Telegram && Telegram.WebApp.MainButton) {
         Telegram.WebApp.MainButton.setText("Поделиться счётом");
         Telegram.WebApp.MainButton.onClick(function() {
             const shareMessage = `Я накормил Капи и набрал ${score} очков! Сможешь побить мой рекорд ${highScore}?`;
-            Telegram.WebApp.showPopup({
-                title: 'Поделиться результатом?',
-                message: `Ваш счёт: ${score}. Хотите отправить его в чат?`,
-                buttons: [
-                    { id: 'share', type: 'default', text: 'Да' },
-                    { id: 'cancel', type: 'cancel' }
-                ]
-            }, (buttonId) => {
-                if (buttonId === 'share') {
-                    Telegram.WebApp.sendData(JSON.stringify({ text: shareMessage }));
-                }
-            });
+            // Open a new Telegram message draft with the share text
+            Telegram.WebApp.openTelegramLink(`https://t.me/share/url?url=&text=${encodeURIComponent(shareMessage)}`);
         });
         Telegram.WebApp.MainButton.hide();
     }
@@ -552,7 +542,7 @@ const appId = firebaseConfig.appId;
                 console.error("Autoplay failed:", error);
             });
         }
-        if (window.Telegram) {
+        if (window.Telegram && Telegram.WebApp.MainButton) {
             Telegram.WebApp.MainButton.hide();
         }
         gameLoop();
@@ -581,7 +571,7 @@ const appId = firebaseConfig.appId;
             highScore = window.highScore;
         }
 
-        if (window.Telegram) {
+        if (window.Telegram && Telegram.WebApp.MainButton) {
             Telegram.WebApp.MainButton.show();
         }
     }
