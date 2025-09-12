@@ -35,6 +35,7 @@ const appId = firebaseConfig.appId;
         let userId = null;
         let userName = null;
         let isAuthReady = false;
+        let chatInstance = null;
 
         async function setupFirebase() {
             try {
@@ -44,6 +45,11 @@ const appId = firebaseConfig.appId;
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
+
+                // Check for chat instance, available in group chats
+                if (window.Telegram && Telegram.WebApp.initDataUnsafe.chat_instance) {
+                    chatInstance = Telegram.WebApp.initDataUnsafe.chat_instance;
+                }
 
                 // Expose Firebase and utility functions to the global scope *after* initialization
                 window.db = db;
@@ -55,6 +61,7 @@ const appId = firebaseConfig.appId;
                 window.getUserId = () => userId;
                 window.getUserName = () => userName;
                 window.isAuthReady = () => isAuthReady;
+                window.getChatInstance = () => chatInstance;
 
                 // Authenticate the user using the provided custom token or anonymously
                 if (initialAuthToken) {
@@ -72,13 +79,19 @@ const appId = firebaseConfig.appId;
                             const telegramUser = Telegram.WebApp.initDataUnsafe.user;
                             userName = telegramUser.username || telegramUser.first_name + (telegramUser.last_name ? ` ${telegramUser.last_name}` : '');
                         } else {
-                            userName = userId.slice(0, 0); // Use a truncated ID as a fallback name
+                            userName = userId.slice(0, 8); // Use a consistent, truncated ID as a fallback name
                         }
 
                         isAuthReady = true;
                         console.log(`User authenticated with ID: ${userId}`);
                         document.getElementById('user-id-display').textContent = `ID пользователя: ${userName}`;
                         await loadHighScore();
+                        // Show/hide leaderboard button based on chat instance availability
+                        if (chatInstance) {
+                            chatLeaderboardButton.classList.remove('hidden');
+                        } else {
+                            chatLeaderboardButton.classList.add('hidden');
+                        }
                     } else {
                         // Handle case where authentication fails or user logs out
                         userId = null;
@@ -143,7 +156,7 @@ const appId = firebaseConfig.appId;
             }
         };
 
-        window.saveGlobalHighScore = async (score) => {
+        window.saveLeaderboardScore = async (score) => {
             if (!window.isAuthReady() || !window.getUserId()) {
                 console.error("Cannot save global high score. Authentication not ready or user ID is missing.");
                 return;
@@ -152,27 +165,46 @@ const appId = firebaseConfig.appId;
                 console.error("Firestore database is not initialized. Cannot save high score.");
                 return;
             }
+
             try {
-                // Save the score to a publicly accessible collection
-                const docRef = doc(window.db, `artifacts/${window.appId}/public/data/global_high_scores`, window.getUserId());
-                await setDoc(docRef, { score: score, userId: window.getUserId(), userName: window.getUserName(), timestamp: new Date() });
-                console.log("Global high score saved successfully.");
+                const userLeaderboardData = {
+                    score: score,
+                    userId: window.getUserId(),
+                    userName: window.getUserName(),
+                    timestamp: new Date()
+                };
+
+                // Save to global leaderboard (path fixed)
+                const globalDocRef = doc(window.db, `artifacts/${window.appId}/public/data/global_scores`, window.getUserId());
+                await setDoc(globalDocRef, userLeaderboardData, { merge: true });
+                console.log("Global leaderboard score saved successfully.");
+
+                // Save to chat leaderboard if chat instance exists
+                const chatInstance = window.getChatInstance();
+                if (chatInstance) {
+                    const chatDocRef = doc(window.db, `artifacts/${window.appId}/public/data/chat_leaderboards/${chatInstance}/scores`, window.getUserId());
+                    await setDoc(chatDocRef, userLeaderboardData, { merge: true });
+                    console.log("Chat leaderboard score saved successfully.");
+                }
             } catch (error) {
-                console.error("Error saving global high score:", error);
+                console.error("Error saving leaderboard scores:", error);
             }
         };
 
-        window.fetchLeaderboard = async () => {
+        window.fetchLeaderboard = async (isGlobal) => {
             if (!window.db) {
                 console.error("Firestore database is not initialized. Cannot fetch leaderboard.");
                 return [];
             }
+            const chatInstance = window.getChatInstance();
+            if (!isGlobal && !chatInstance) {
+                console.error("Not in a group chat, cannot fetch chat leaderboard.");
+                return [];
+            }
             try {
-                // NOTE: Using orderBy here is the correct way to implement a leaderboard.
-                // Firestore might require a composite index for this query to work.
-                // The provided security rules should allow this.
+                const collectionPath = isGlobal ? `artifacts/${window.appId}/public/data/global_scores` : `artifacts/${window.appId}/public/data/chat_leaderboards/${chatInstance}/scores`;
                 const q = query(
-                    collection(window.db, `artifacts/${window.appId}/public/data/global_high_scores`),
+                    collection(window.db, collectionPath),
                     orderBy('score', 'desc'),
                     limit(100)
                 );
@@ -360,9 +392,14 @@ const appId = firebaseConfig.appId;
         <button id="start-button" class="bg-blue-600 hover:bg-blue-700 text-white text-2xl font-bold py-4 px-12 rounded-full shadow-lg transition-all duration-300 transform hover:scale-105">
             Накормить Капи
         </button>
-        <button id="leaderboard-button" class="mt-4 bg-gray-500 hover:bg-gray-600 text-white text-lg font-bold py-3 px-8 rounded-full shadow-lg transition-all duration-300 transform hover:scale-105">
-            Таблица лидеров
-        </button>
+        <div class="flex flex-col mt-4 space-y-2 w-full max-w-xs">
+            <button id="chat-leaderboard-button" class="bg-gray-500 hover:bg-gray-600 text-white text-lg font-bold py-3 px-8 rounded-full shadow-lg transition-all duration-300 transform hover:scale-105 hidden">
+                Таблица лидеров чата
+            </button>
+            <button id="global-leaderboard-button" class="bg-gray-500 hover:bg-gray-600 text-white text-lg font-bold py-3 px-8 rounded-full shadow-lg transition-all duration-300 transform hover:scale-105">
+                Глобальная таблица лидеров
+            </button>
+        </div>
         <p id="user-id-display" class="text-xs text-gray-400 mt-4"></p>
     </div>
 
@@ -370,7 +407,7 @@ const appId = firebaseConfig.appId;
     <div id="leaderboard-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-30">
         <div class="bg-white rounded-3xl shadow-2xl p-6 w-11/12 max-w-md max-h-[80%] flex flex-col">
             <div class="flex justify-between items-center mb-4">
-                <h3 class="text-2xl font-bold text-gray-800">Таблица лидеров</h3>
+                <h3 id="leaderboard-title" class="text-2xl font-bold text-gray-800">Таблица лидеров</h3>
                 <button id="close-leaderboard" class="text-gray-500 hover:text-gray-700 text-3xl font-bold">&times;</button>
             </div>
             <div id="leaderboard-list-container" class="overflow-y-auto flex-grow pr-2">
@@ -403,8 +440,10 @@ const appId = firebaseConfig.appId;
     const overlayText = document.getElementById('overlay-text');
     const overlaySubtext = document.getElementById('overlay-subtext');
     const startButton = document.getElementById('start-button');
-    const leaderboardButton = document.getElementById('leaderboard-button');
+    const chatLeaderboardButton = document.getElementById('chat-leaderboard-button');
+    const globalLeaderboardButton = document.getElementById('global-leaderboard-button');
     const leaderboardModal = document.getElementById('leaderboard-modal');
+    const leaderboardTitle = document.getElementById('leaderboard-title');
     const closeLeaderboardButton = document.getElementById('close-leaderboard');
     const leaderboardList = document.getElementById('leaderboard-list');
     const effectContainer = document.getElementById('effect-container');
@@ -450,10 +489,19 @@ const appId = firebaseConfig.appId;
     });
 
     // Leaderboard button handlers
-    leaderboardButton.addEventListener('click', async () => {
+    chatLeaderboardButton.addEventListener('click', async () => {
+        leaderboardTitle.textContent = 'Таблица лидеров чата';
         leaderboardModal.classList.remove('hidden');
         leaderboardList.innerHTML = '<p class="text-center text-gray-500">Загрузка...</p>';
-        const scores = await window.fetchLeaderboard();
+        const scores = await window.fetchLeaderboard(false);
+        displayLeaderboard(scores);
+    });
+
+    globalLeaderboardButton.addEventListener('click', async () => {
+        leaderboardTitle.textContent = 'Глобальная таблица лидеров';
+        leaderboardModal.classList.remove('hidden');
+        leaderboardList.innerHTML = '<p class="text-center text-gray-500">Загрузка...</p>';
+        const scores = await window.fetchLeaderboard(true);
         displayLeaderboard(scores);
     });
 
@@ -564,8 +612,8 @@ const appId = firebaseConfig.appId;
             highScoreMessage.classList.remove('opacity-0');
             if (window.isAuthReady() && window.getUserId()) {
                 await window.saveHighScore(highScore);
-                // Also save to global leaderboard
-                await window.saveGlobalHighScore(highScore);
+                // Also save to all leaderboards
+                await window.saveLeaderboardScore(highScore);
             }
         } else {
             highScore = window.highScore;
