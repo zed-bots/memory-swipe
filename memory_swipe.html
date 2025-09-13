@@ -15,10 +15,20 @@
         import { getFirestore, doc, getDoc, setDoc, collection, query, orderBy, limit, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Глобальные переменные Firebase, предоставленные средой Canvas
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+// Firebase-related global variables provided by the environment
+        const firebaseConfig = {
+  apiKey: "AIzaSyDQXqft_-EFfA58xUuhKKbCl8HnNx00ihg",
+  authDomain: "memory-swipe.firebaseapp.com",
+  databaseURL: "https://memory-swipe-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "memory-swipe",
+  storageBucket: "memory-swipe.firebasestorage.app",
+  messagingSenderId: "800130343271",
+  appId: "1:800130343271:web:1468523f03220434890fc2",
+  measurementId: "G-MXWK0B1ZVY"
+};
+
+const appId = firebaseConfig.appId;
+        const initialAuthToken = null;
 
         let db = null;
         let auth = null;
@@ -307,32 +317,6 @@
                 leaderboardModal.classList.add('hidden');
             });
 
-            // Добавляем функциональность кнопки пожертвования
-            donateButton.addEventListener('click', async () => {
-                // Это демонстрация, как бы выглядел вызов
-                if (window.Telegram && Telegram.WebApp.isVersionAtLeast('6.9')) {
-                    // Используем заглушку для URL-адреса счета, так как у нас нет сервера
-                    const mockInvoiceUrl = "https://t.me/invoice/6744a6b5-0c7f-44e2-892f-ac9d216f4044";
-
-                    try {
-                        // Вызываем showInvoice, который откроет интерфейс оплаты Telegram
-                        Telegram.WebApp.showInvoice(mockInvoiceUrl, (status) => {
-                            if (status === 'paid') {
-                                showMessage('Спасибо, что накормили Капибару!');
-                            } else {
-                                showMessage('Оплата не прошла. Пожалуйста, попробуйте снова.');
-                            }
-                        });
-                    } catch (e) {
-                        console.error("Ошибка при вызове showInvoice:", e);
-                        showMessage('Произошла ошибка при попытке оплаты. Возможно, ваша версия Telegram не поддерживает эту функцию.');
-                    }
-                } else {
-                    console.warn("Версия Telegram Web App слишком старая для поддержки showInvoice.");
-                    showMessage('Функция оплаты не поддерживается вашей версией Telegram. Обновите приложение.');
-                }
-            });
-
             // Обработчик закрытия кастомного сообщения
             messageCloseButton.addEventListener('click', () => {
                 messageBox.classList.add('hidden');
@@ -448,7 +432,7 @@
             isInedible = false;
             overlay.classList.add('opacity-0', 'pointer-events-none');
             highScoreMessage.classList.add('opacity-0');
-            donateButton.classList.remove('hidden'); // Показываем кнопку пожертвования при старте игры
+            //donateButton.classList.remove('hidden'); // Показываем кнопку пожертвования при старте игры
             updateScore();
             if (!isMuted) {
                 backgroundMusic.play().catch(error => {
@@ -469,7 +453,7 @@
             overlaySubtext.innerHTML = `Ваш счет: <span class="font-bold text-blue-600">${score}</span> очков.`;
             startButton.textContent = 'Покормить еще раз';
             overlay.classList.remove('opacity-0', 'pointer-events-none');
-            donateButton.classList.remove('hidden'); // Показываем кнопку пожертвования при окончании игры
+            //donateButton.classList.remove('hidden'); // Показываем кнопку пожертвования при окончании игры
 
             if (score > window.highScore) {
                 highScore = score;
@@ -850,7 +834,7 @@
             <button id="global-leaderboard-button" class="bg-gray-500 hover:bg-gray-600 text-white text-sm font-bold py-2 px-6 rounded-full shadow-lg transition-all duration-300 transform hover:scale-105">
                 Глобальная таблица лидеров
             </button>
-            <button id="donate-button" class="bg-yellow-400 hover:bg-yellow-500 text-white text-sm font-bold py-2 px-6 rounded-full shadow-lg transition-all duration-300 transform hover:scale-105">
+            <button id="donate-button" class="hidden bg-yellow-400 hover:bg-yellow-500 text-white text-sm font-bold py-2 px-6 rounded-full shadow-lg transition-all duration-300 transform hover:scale-105">
                 Покормить Капи звездами ⭐
             </button>
         </div>
