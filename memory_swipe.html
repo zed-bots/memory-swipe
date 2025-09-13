@@ -718,6 +718,9 @@ const appId = firebaseConfig.appId;
             createPositiveEffect();
 
             // Animate card out based on direction
+            cardDisplay.style.transition = '';
+            cardDisplay.style.transform = '';
+
             if (direction === 'left') {
                 let endX, endY, endRotate;
                 endX = -window.innerWidth * 1.5;
