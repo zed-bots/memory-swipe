@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Пир Капибары</title>
-    <!-- Include Tailwind CSS from CDN -->
+    <!-- Подключаем Tailwind CSS через CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Telegram Web App API -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -40,14 +40,14 @@ const appId = firebaseConfig.appId;
 
         async function setupFirebase() {
             try {
-                // Set Firestore log level to debug for detailed console output
+                // Включаем подробное логирование Firestore
                 setLogLevel('debug');
 
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
 
-                // Check for chat instance and type, available in group chats
+                // Проверяем наличие chat_instance и chat_type, доступных в групповых чатах
                 if (window.Telegram && Telegram.WebApp.initDataUnsafe.chat_instance) {
                     chatInstance = Telegram.WebApp.initDataUnsafe.chat_instance;
                 }
@@ -55,7 +55,7 @@ const appId = firebaseConfig.appId;
                     chatType = Telegram.WebApp.initDataUnsafe.chat.type;
                 }
 
-                // Expose Firebase and utility functions to the global scope *after* initialization
+                // Делаем Firebase и служебные функции доступными в глобальной области видимости
                 window.db = db;
                 window.auth = auth;
                 window.getDoc = getDoc;
@@ -67,55 +67,55 @@ const appId = firebaseConfig.appId;
                 window.isAuthReady = () => isAuthReady;
                 window.getChatInstance = () => chatInstance;
 
-                // Log chat instance for debugging
-                console.log(`Chat Instance: ${chatInstance || 'Not available'}`);
-                console.log(`Chat Type: ${chatType || 'Not available'}`);
+                // Логируем chat_instance для отладки
+                console.log(`Chat Instance: ${chatInstance || 'Недоступен'}`);
+                console.log(`Chat Type: ${chatType || 'Недоступен'}`);
 
-                // Authenticate the user using the provided custom token or anonymously
+                // Аутентификация пользователя с помощью предоставленного кастомного токена или анонимно
                 if (initialAuthToken) {
                     await signInWithCustomToken(auth, initialAuthToken);
                 } else {
                     await signInAnonymously(auth);
                 }
 
-                // Wait for auth state to be ready and get the user ID
+                // Ожидаем готовности состояния аутентификации и получаем ID пользователя
                 onAuthStateChanged(auth, async (user) => {
                     if (user) {
                         userId = user.uid;
-                        // Get Telegram username if available
+                        // Получаем имя пользователя Telegram, если доступно
                         if (window.Telegram && Telegram.WebApp.initDataUnsafe.user) {
                             const telegramUser = Telegram.WebApp.initDataUnsafe.user;
                             userName = telegramUser.username || telegramUser.first_name + (telegramUser.last_name ? ` ${telegramUser.last_name}` : '');
                         } else {
-                            userName = userId.slice(0, 0); // Use a consistent, truncated ID as a fallback name
+                            userName = userId.slice(0, 0); // Используем обрезанный ID в качестве запасного имени
                         }
 
                         isAuthReady = true;
-                        console.log(`User authenticated with ID: ${userId}`);
+                        console.log(`Пользователь аутентифицирован с ID: ${userId}`);
                         document.getElementById('user-id-display').textContent = `ID пользователя: ${userName}`;
                         await loadHighScore();
                     } else {
-                        // Handle case where authentication fails or user logs out
+                        // Обрабатываем случай, когда аутентификация не удалась или пользователь вышел
                         userId = null;
                         userName = "Анонимный";
                         isAuthReady = true;
                         document.getElementById('user-id-display').textContent = `ID пользователя: Анонимный`;
-                        console.log("No user is signed in.");
+                        console.log("Пользователь не авторизован.");
                     }
                 });
 
             } catch (error) {
-                console.error("Firebase setup failed:", error);
+                console.error("Сбой настройки Firebase:", error);
             }
         }
 
         window.loadHighScore = async () => {
             if (!window.isAuthReady() || !window.getUserId()) {
-                console.warn("Auth not ready yet, skipping high score load.");
+                console.warn("Аутентификация еще не готова, пропуск загрузки рекорда.");
                 return 0;
             }
             if (!window.db) {
-                console.error("Firestore database is not initialized. Cannot load high score.");
+                console.error("База данных Firestore не инициализирована. Невозможно загрузить рекорд.");
                 return 0;
             }
             try {
@@ -124,47 +124,47 @@ const appId = firebaseConfig.appId;
                 if (docSnap.exists()) {
                     const data = docSnap.data();
                     window.highScore = data.score;
-                    console.log("High score loaded:", window.highScore);
+                    console.log("Рекорд загружен:", window.highScore);
                     document.getElementById('high-score-display').textContent = `Рекорд: ${window.highScore}`;
                     return data.score;
                 } else {
                     window.highScore = 0;
-                    console.log("No high score found for this user.");
+                    console.log("Рекорд для этого пользователя не найден.");
                     return 0;
                 }
             } catch (error) {
-                console.error("Error loading high score:", error);
+                console.error("Ошибка загрузки рекорда:", error);
                 return 0;
             }
         };
 
         window.saveHighScore = async (score) => {
             if (!window.isAuthReady() || !window.getUserId()) {
-                console.error("Cannot save high score. Authentication not ready or user ID is missing.");
+                console.error("Невозможно сохранить рекорд. Аутентификация не готова или ID пользователя отсутствует.");
                 return;
             }
             if (!window.db) {
-                console.error("Firestore database is not initialized. Cannot save high score.");
+                console.error("База данных Firestore не инициализирована. Невозможно сохранить рекорд.");
                 return;
             }
             try {
                 const docRef = window.doc(window.db, `artifacts/${window.appId}/users/${window.getUserId()}/high_scores/capybara_feast`);
                 await window.setDoc(docRef, { score: score }, { merge: true });
-                console.log("High score saved successfully.");
+                console.log("Рекорд успешно сохранен.");
                 window.highScore = score;
                 document.getElementById('high-score-display').textContent = `Рекорд: ${window.highScore}`;
             } catch (error) {
-                console.error("Error saving high score:", error);
+                console.error("Ошибка сохранения рекорда:", error);
             }
         };
 
         window.saveLeaderboardScore = async (score) => {
             if (!window.isAuthReady() || !window.getUserId()) {
-                console.error("Cannot save global high score. Authentication not ready or user ID is missing.");
+                console.error("Невозможно сохранить глобальный рекорд. Аутентификация не готова или ID пользователя отсутствует.");
                 return;
             }
             if (!window.db) {
-                console.error("Firestore database is not initialized. Cannot save high score.");
+                console.error("База данных Firestore не инициализирована. Невозможно сохранить рекорд.");
                 return;
             }
 
@@ -176,38 +176,38 @@ const appId = firebaseConfig.appId;
                     timestamp: new Date()
                 };
 
-                // Save to global leaderboard
+                // Сохраняем в глобальную таблицу лидеров
                 const globalDocRef = doc(window.db, `artifacts/${window.appId}/public/data/global_scores`, window.getUserId());
                 await setDoc(globalDocRef, userLeaderboardData, { merge: true });
-                console.log("Global leaderboard score saved successfully.");
+                console.log("Глобальный рекорд успешно сохранен.");
 
-                // Save to chat leaderboard if chat instance exists
+                // Сохраняем в таблицу лидеров чата, если экземпляр чата существует
                 const chatInstance = window.getChatInstance();
                 if (chatInstance) {
                     try {
                         const chatDocRef = doc(window.db, `artifacts/${window.appId}/public/data/chat_leaderboards/${chatInstance}/scores`, window.getUserId());
                         await setDoc(chatDocRef, userLeaderboardData, { merge: true });
-                        console.log("Chat leaderboard score saved successfully.");
+                        console.log("Рекорд чата успешно сохранен.");
                     } catch (error) {
-                        console.error("Error saving chat leaderboard score. Possible permissions issue:", error);
+                        console.error("Ошибка сохранения рекорда чата. Возможна проблема с правами доступа:", error);
                     }
                 } else {
-                    console.warn("Chat instance is not available. Skipping chat leaderboard save.");
+                    console.warn("Экземпляр чата недоступен. Пропуск сохранения в таблицу лидеров чата.");
                 }
             } catch (error) {
-                console.error("Error saving global leaderboard scores:", error);
+                console.error("Ошибка сохранения глобальных рекордов:", error);
             }
         };
 
         window.fetchLeaderboard = async (isGlobal) => {
             if (!window.db) {
-                console.error("Firestore database is not initialized. Cannot fetch leaderboard.");
+                console.error("База данных Firestore не инициализирована. Невозможно загрузить таблицу лидеров.");
                 return [];
             }
             const chatInstance = window.getChatInstance();
             if (!isGlobal && !chatInstance) {
-                console.warn("Not in a group chat, cannot fetch chat leaderboard.");
-                return null; // Return null to indicate the feature is not available
+                console.warn("Не в групповом чате, невозможно загрузить таблицу лидеров чата.");
+                return null; // Возвращаем null, чтобы указать, что функция недоступна
             }
             try {
                 const collectionPath = isGlobal ? `artifacts/${window.appId}/public/data/global_scores` : `artifacts/${window.appId}/public/data/chat_leaderboards/${chatInstance}/scores`;
@@ -223,14 +223,467 @@ const appId = firebaseConfig.appId;
                 });
                 return leaderboard;
             } catch (error) {
-                console.error("Error fetching leaderboard:", error);
+                console.error("Ошибка загрузки таблицы лидеров:", error);
                 return [];
             }
         };
 
+        // Элементы DOM
+        const gameContainer = document.getElementById('game-container');
+        const scoreDisplay = document.getElementById('score-display');
+        const timerDisplay = document.getElementById('timer-display');
+        const cardDisplay = document.getElementById('card-display');
+        const leftButton = document.getElementById('left-button');
+        const rightButton = document.getElementById('right-button');
+        const overlay = document.getElementById('overlay');
+        const overlayText = document.getElementById('overlay-text');
+        const overlaySubtext = document.getElementById('overlay-subtext');
+        const startButton = document.getElementById('start-button');
+        const chatLeaderboardButton = document.getElementById('chat-leaderboard-button');
+        const globalLeaderboardButton = document.getElementById('global-leaderboard-button');
+        const donateButton = document.getElementById('donate-button');
+        const leaderboardModal = document.getElementById('leaderboard-modal');
+        const leaderboardTitle = document.getElementById('leaderboard-title');
+        const closeLeaderboardButton = document.getElementById('close-leaderboard');
+        const leaderboardList = document.getElementById('leaderboard-list');
+        const effectContainer = document.getElementById('effect-container');
+        const backgroundMusic = document.getElementById('background-music');
+        const muteButton = document.getElementById('mute-button');
+        const highScoreDisplay = document.getElementById('high-score-display');
+        const highScoreMessage = document.getElementById('high-score-message');
+        const messageBox = document.getElementById('message-box');
+        const messageText = document.getElementById('message-text');
+        const messageCloseButton = document.getElementById('message-close-button');
 
-        // Initialize Firebase on window load
-        window.addEventListener('load', setupFirebase);
+
+        // Состояние игры
+        let score = 0;
+        let highScore = 0;
+        let gameActive = false;
+        let timeRemaining = 5.0;
+        let timerInterval = null;
+        let timeout = null;
+        let seenCards = [];
+        let currentCard = null;
+        let isRepeated = false;
+        let lastAnswerTime = performance.now();
+        let isMuted = false;
+        let roundCount = 0;
+        let isInedible = false;
+
+        // Эмодзи для игры (расширенный список)
+        const emojis = ['🍇', '🍉', '🍊', '🍋', '🍌', '🍍', '🍎', '🍐', '🥝', '🥭', '🍒', '🍓', '🥑', '🥕', '🥔', '🌶️', '🌽', '🥜', '🍔', '🍕', '🌭', '🌮', '🌯', '🥙', '🥪', '🍟', '🧀', '🍖', '🍗', '🍤', '🍣', '🍙', '🍚', '🍜', '🍲', '🍝', '🥗', '🍿', '🍩', '🍪', '🎂', '🍰', '🍫', '🍬', '🍭', '🍮', '🍯', '🍼', '☕', '🍵', '🍶', '🥤', '🧊', '🥐', '🍞', '🥖', '🥨', '🥞', '🧇', '🍳', '🥓', '🥩', '🍗', '🦪', '🦞', '🦐', '🦀', '🦑', '🐙', '🍙', '🍣', '🍤', '🍚', '🍛', '🍜', '🍲', '🥘', '🍢', '🍡', '🍧', '🍨', '🍦', '🥧', '🍮', '🍰', '🎂', '🧁', '🍩', '🍪', '🍫', '🍬', '🍭', '🍯'];
+
+        // Эмодзи для несъедобных предметов
+        const inedibleEmojis = ['👟', '🧦', '💍', '💎', '🔨', '📖', '🚗', '🔑', '🔋', '⚽'];
+
+        // Настройки таймера
+        const timeLimit = 5000;
+        const timerUpdateInterval = 250;
+
+        function setupEventListeners() {
+            startButton.addEventListener('click', startGame);
+            muteButton.addEventListener('click', () => {
+                if (backgroundMusic.paused) {
+                    backgroundMusic.play().catch(e => console.error("Сбой автовоспроизведения:", e));
+                    muteButton.textContent = '🔊';
+                    isMuted = false;
+                } else {
+                    backgroundMusic.pause();
+                    muteButton.textContent = '🔇';
+                    isMuted = true;
+                }
+            });
+            chatLeaderboardButton.addEventListener('click', async () => {
+                leaderboardTitle.textContent = 'Таблица лидеров чата';
+                leaderboardModal.classList.remove('hidden');
+                const chatInstance = window.getChatInstance();
+                if (!chatInstance) {
+                    leaderboardList.innerHTML = '<p class="text-center text-gray-500">Эта таблица лидеров доступна только в групповых чатах.</p>';
+                    return;
+                }
+                leaderboardList.innerHTML = '<p class="text-center text-gray-500">Загрузка...</p>';
+                const scores = await window.fetchLeaderboard(false);
+                displayLeaderboard(scores);
+            });
+            globalLeaderboardButton.addEventListener('click', async () => {
+                leaderboardTitle.textContent = 'Глобальная таблица лидеров';
+                leaderboardModal.classList.remove('hidden');
+                leaderboardList.innerHTML = '<p class="text-center text-gray-500">Загрузка...</p>';
+                const scores = await window.fetchLeaderboard(true);
+                displayLeaderboard(scores);
+            });
+            closeLeaderboardButton.addEventListener('click', () => {
+                leaderboardModal.classList.add('hidden');
+            });
+
+            // Добавляем функциональность кнопки пожертвования
+            donateButton.addEventListener('click', () => {
+                // Проверяем, поддерживает ли Telegram Web Apps `showInvoice`
+                if (window.Telegram && Telegram.WebApp.isVersionAtLeast('6.9')) {
+                    // Поскольку это клиентское веб-приложение, мы не можем создать настоящий счет.
+                    // Вместо этого показываем сообщение.
+                    showMessage('Чтобы покормить Капибару звёздами, нужен настоящий сервер. Это всего лишь демо-версия!');
+                } else {
+                    console.warn("Версия Telegram Web App слишком старая для поддержки showInvoice.");
+                    // Предоставляем запасной вариант, если необходимо
+                    showMessage('Функция оплаты не поддерживается вашей версией Telegram. Обновите приложение.');
+                }
+            });
+
+            // Обработчик закрытия кастомного сообщения
+            messageCloseButton.addEventListener('click', () => {
+                messageBox.classList.add('hidden');
+            });
+
+
+            // Обработчики ввода
+            document.addEventListener('keydown', (e) => {
+                if (!gameActive) return;
+                if (e.key === 'ArrowLeft') handleInput('left');
+                if (e.key === 'ArrowRight') handleInput('right');
+            });
+            leftButton.addEventListener('click', () => { if (gameActive) handleInput('left'); });
+            rightButton.addEventListener('click', () => { if (gameActive) handleInput('right'); });
+
+            // Обработка свайпов для динамического движения карточки
+            let touchstartX = 0;
+            let isDragging = false;
+
+            // Начало перетаскивания
+            gameContainer.addEventListener('touchstart', e => {
+                if (!gameActive) return;
+                touchstartX = e.changedTouches[0].screenX;
+                isDragging = true;
+                cardDisplay.style.transition = 'none'; // Отключаем CSS-переход для плавного перетаскивания
+            }, false);
+
+            // Динамическое движение карточки во время перетаскивания
+            gameContainer.addEventListener('touchmove', e => {
+                if (!gameActive || !isDragging) return;
+                const currentX = e.changedTouches[0].screenX;
+                const deltaX = currentX - touchstartX;
+                const maxMove = 100;
+                const move = Math.max(-maxMove, Math.min(maxMove, deltaX));
+                const rotate = move / 10;
+                cardDisplay.style.transform = `translateX(${move}px) rotate(${rotate}deg)`;
+            }, false);
+
+            // Конец перетаскивания
+            gameContainer.addEventListener('touchend', e => {
+                if (!gameActive || !isDragging) return;
+                isDragging = false;
+
+                const touchendX = e.changedTouches[0].screenX;
+
+                // Определяем, был ли свайп действительным
+                if (touchendX < touchstartX - 50) handleInput('left', touchendX);
+                else if (touchendX > touchstartX + 50) handleInput('right', touchendX);
+                else {
+                    // Если свайп был слишком коротким, возвращаем карточку в исходное положение
+                    cardDisplay.style.transition = 'transform 0.2s ease-in-out';
+                    cardDisplay.style.transform = '';
+                }
+            }, false);
+        }
+
+        function displayLeaderboard(scores) {
+            leaderboardList.innerHTML = '';
+            if (scores === null) {
+                 return;
+            }
+            if (scores.length === 0) {
+                leaderboardList.innerHTML = '<p class="text-center text-gray-500">Пока нет записей. Будьте первым!</p>';
+                return;
+            }
+            scores.forEach((item, index) => {
+                const listItem = document.createElement('li');
+                listItem.classList.add('flex', 'justify-between', 'items-center', 'bg-gray-100', 'p-3', 'rounded-xl', 'shadow-sm');
+
+                const rankText = document.createElement('span');
+                rankText.classList.add('text-lg', 'font-bold', 'text-gray-600');
+                rankText.textContent = `${index + 1}.`;
+
+                const userNameDisplay = item.userName || item.userId;
+                const userText = document.createElement('span');
+                userText.classList.add('text-sm', 'font-mono', 'text-gray-500', 'truncate');
+                userText.textContent = userNameDisplay;
+
+                const scoreText = document.createElement('span');
+                scoreText.classList.add('text-xl', 'font-bold', 'text-blue-600');
+                scoreText.textContent = item.score;
+
+                listItem.appendChild(rankText);
+                listItem.appendChild(userText);
+                listItem.appendChild(scoreText);
+                leaderboardList.appendChild(listItem);
+            });
+        }
+
+        // Функциональность кнопки MainButton
+        if (window.Telegram && Telegram.WebApp.MainButton) {
+            Telegram.WebApp.MainButton.setText("Поделиться счетом");
+            Telegram.WebApp.MainButton.onClick(function() {
+                const shareMessage = `Я набрал ${highScore} очков в игре "Пир Капибары"! Попробуешь побить мой рекорд?`;
+                const shareUrl = `https://t.me/memoryswipebot/start`;
+                Telegram.WebApp.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareMessage)}`);
+            });
+            Telegram.WebApp.MainButton.hide();
+        }
+
+        // Кастомная функция для отображения сообщений
+        function showMessage(text) {
+            messageText.textContent = text;
+            messageBox.classList.remove('hidden');
+        }
+
+        // Основные функции игры
+        function startGame() {
+            score = 0;
+            seenCards = [];
+            roundCount = 0;
+            gameActive = true;
+            isInedible = false;
+            overlay.classList.add('opacity-0', 'pointer-events-none');
+            highScoreMessage.classList.add('opacity-0');
+            donateButton.classList.remove('hidden'); // Показываем кнопку пожертвования при старте игры
+            updateScore();
+            if (!isMuted) {
+                backgroundMusic.play().catch(error => {
+                    console.error("Сбой автовоспроизведения:", error);
+                });
+            }
+            if (window.Telegram && Telegram.WebApp.MainButton) {
+                Telegram.WebApp.MainButton.hide();
+            }
+            gameLoop();
+        }
+
+        async function endGame(reason) {
+            gameActive = false;
+            clearInterval(timerInterval);
+            clearTimeout(timeout);
+            overlayText.textContent = reason;
+            overlaySubtext.innerHTML = `Ваш счет: <span class="font-bold text-blue-600">${score}</span> очков.`;
+            startButton.textContent = 'Покормить еще раз';
+            overlay.classList.remove('opacity-0', 'pointer-events-none');
+            donateButton.classList.remove('hidden'); // Показываем кнопку пожертвования при окончании игры
+
+            if (score > window.highScore) {
+                highScore = score;
+                highScoreDisplay.textContent = `Рекорд: ${highScore}`;
+                highScoreMessage.classList.remove('opacity-0');
+                if (window.isAuthReady() && window.getUserId()) {
+                    await window.saveHighScore(highScore);
+                    await window.saveLeaderboardScore(highScore);
+                }
+            } else {
+                highScore = window.highScore;
+            }
+
+            if (window.Telegram && Telegram.WebApp.MainButton) {
+                Telegram.WebApp.MainButton.show();
+            }
+        }
+
+        function createPositiveEffect() {
+            const particleCount = 10;
+            const particles = ['⭐', '✨', '🌟', '💫', '🌈'];
+            for (let i = 0; i < particleCount; i++) {
+                const particle = document.createElement('div');
+                particle.textContent = particles[Math.floor(Math.random() * particles.length)];
+                particle.classList.add('particle', 'text-4xl');
+
+                const randomX = (Math.random() - 0.5) * 200;
+                const randomY = (Math.random() - 0.5) * 200;
+                const duration = 0.8 + Math.random() * 0.4;
+                const animationClass = ['star-burst-small', 'star-burst-medium', 'star-burst-large'][Math.floor(Math.random() * 3)];
+
+                particle.style.setProperty('--x', `${randomX}px`);
+                particle.style.setProperty('--y', `${randomY}px`);
+                particle.style.animation = `${animationClass} ${duration}s ease-out forwards`;
+
+                effectContainer.appendChild(particle);
+
+                setTimeout(() => {
+                    particle.remove();
+                }, duration * 1000);
+            }
+        }
+
+        function handleInput(direction) {
+            let correct = false;
+
+            // Определяем правильность
+            if (isInedible) {
+                if (direction === 'right') {
+                    correct = true;
+                } else {
+                    endGame('Это несъедобно!');
+                    return;
+                }
+            } else if (direction === 'left' && !isRepeated) {
+                correct = true;
+            } else if (direction === 'right' && isRepeated) {
+                correct = true;
+            }
+
+            if (correct) {
+                if (window.Telegram && Telegram.WebApp.HapticFeedback) {
+                    Telegram.WebApp.HapticFeedback.impactOccurred('light');
+                }
+
+                const timeTaken = performance.now() - lastAnswerTime;
+
+                let points;
+                const gracePeriod = 300;
+                const maxPoints = Math.floor(timeLimit / 5);
+
+                if (timeTaken <= gracePeriod) {
+                    points = maxPoints;
+                } else {
+                    const timeRemaining = Math.max(0, timeLimit - timeTaken);
+                    points = Math.floor(timeRemaining / 5);
+                }
+
+                score += points;
+
+                updateScore();
+                createPositiveEffect();
+
+                // Анимируем уход карточки в зависимости от направления
+                cardDisplay.style.transition = 'none';
+                if (direction === 'left') {
+                    let endX, endY, endRotate;
+                    endX = -window.innerWidth * 1.5;
+                    endY = window.innerHeight * 1.5;
+                    endRotate = -45;
+                    cardDisplay.style.setProperty('--end-x', `${endX}px`);
+                    cardDisplay.style.setProperty('--end-y', `${endY}px`);
+                    cardDisplay.style.setProperty('--end-rotate', `${endRotate}deg`);
+                    cardDisplay.classList.add('card-animate-out-left');
+                    setTimeout(() => {
+                        cardDisplay.classList.remove('card-animate-out-left');
+                        gameLoop();
+                    }, 200);
+                } else { // Правильный свайп вправо или свайп несъедобного
+                    cardDisplay.classList.add('card-animate-out-right');
+                    setTimeout(() => {
+                        cardDisplay.classList.remove('card-animate-out-right');
+                        gameLoop();
+                    }, 200);
+                }
+
+                roundCount++;
+                isInedible = false;
+
+            } else {
+                if (window.Telegram && Telegram.WebApp.HapticFeedback) {
+                    Telegram.WebApp.HapticFeedback.notificationOccurred('error');
+                }
+
+                // Анимация шатания при неправильном ответе
+                cardDisplay.classList.add('card-wobble');
+                setTimeout(() => {
+                    cardDisplay.classList.remove('card-wobble');
+                }, 500);
+
+                let reason = '';
+                if (direction === 'left' && isRepeated) {
+                    reason = 'Я это уже ела!';
+                } else if (direction === 'right' && !isRepeated) {
+                    reason = 'Эй! Я это еще не пробовала!';
+                } else {
+                    reason = 'Капи уснула...';
+                }
+
+                setTimeout(() => {
+                    endGame(reason);
+                }, 150);
+            }
+        }
+
+        function gameLoop() {
+            if (!gameActive) return;
+
+            clearInterval(timerInterval);
+            clearTimeout(timeout);
+            timeRemaining = 5.0;
+            updateTimer();
+            lastAnswerTime = performance.now();
+
+            // Сбрасываем трансформацию карточки перед новым раундом
+            cardDisplay.style.transform = '';
+
+            let newChance = 0.5;
+            // Прогрессивная сложность:
+            if (roundCount < 5) {
+                // Первые 5 ходов: 80% шанс на новый предмет
+                newChance = 0.8;
+            } else {
+                // После 5-го хода: 50% шанс на новый предмет
+                newChance = 0.5;
+            }
+
+            // 10% шанс на несъедобный предмет после 30 раундов
+            const shouldBeInedible = roundCount >= 30 && Math.random() < 0.1;
+            isInedible = shouldBeInedible;
+
+            if (isInedible) {
+                currentCard = inedibleEmojis[Math.floor(Math.random() * inedibleEmojis.length)];
+                isRepeated = false;
+            } else {
+                const shouldRepeat = seenCards.length > 0 && Math.random() > newChance;
+                isRepeated = shouldRepeat;
+
+                if (shouldRepeat) {
+                    currentCard = seenCards[Math.floor(Math.random() * seenCards.length)];
+                } else {
+                    const availableEmojis = emojis.filter(e => !seenCards.includes(e));
+                    if (availableEmojis.length === 0) {
+                        endGame('Капи наелась!');
+                        return;
+                    }
+                    currentCard = availableEmojis[Math.floor(Math.random() * availableEmojis.length)];
+                    seenCards.push(currentCard);
+                }
+            }
+
+            cardDisplay.textContent = currentCard;
+            cardDisplay.classList.add('card-animate-in');
+            setTimeout(() => {
+                cardDisplay.classList.remove('card-animate-in');
+            }, 170);
+
+            let startTime = performance.now();
+            timerInterval = setInterval(() => {
+                const elapsedTime = performance.now() - startTime;
+                timeRemaining = Math.max(0, 5 - (elapsedTime / 1000));
+                updateTimer();
+            }, timerUpdateInterval);
+
+            timeout = setTimeout(() => {
+                if (gameActive) {
+                    endGame('Капи уснула...');
+                }
+            }, timeLimit);
+        }
+
+        function updateScore() {
+            scoreDisplay.textContent = `Счет: ${score}`;
+        }
+
+        function updateTimer() {
+            timerDisplay.textContent = timeRemaining.toFixed(1);
+        }
+
+        // Правильный способ вызова функций. Поскольку они находятся в одном скрипте-модуле,
+        // они могут видеть друг друга. Весь скрипт, по сути, является "основным" блоком.
+        // Мы вызываем функции настройки в самом конце, чтобы убедиться, что все функции
+        // определены до их вызова.
+        setupFirebase();
+        setupEventListeners();
+
     </script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
@@ -244,7 +697,7 @@ const appId = firebaseConfig.appId;
             user-select: none;
         }
 
-        /* Animation for card entry */
+        /* Анимация появления карточки */
         @keyframes fly-in {
             from {
                 transform: translate(100%, -100%) scale(0.5);
@@ -260,7 +713,7 @@ const appId = firebaseConfig.appId;
             animation: fly-in 0.17s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
         }
 
-        /* Animation for correct answer, flying straight down */
+        /* Анимация правильного ответа, карточка улетает вниз */
         @keyframes fly-out-down {
             from {
                 transform: translate(0, 0) scale(1) rotate(0deg);
@@ -276,7 +729,7 @@ const appId = firebaseConfig.appId;
             animation: fly-out-down 0.2s ease-in-out forwards;
         }
 
-        /* Animation for correct right answer (burst) */
+        /* Анимация правильного свайпа вправо (взрыв) */
         @keyframes burst-out-correct {
             0% {
                 transform: scale(1) rotate(0deg);
@@ -294,7 +747,7 @@ const appId = firebaseConfig.appId;
             animation: burst-out-correct 0.2s ease-in forwards;
         }
 
-        /* Wobble animation for incorrect answer */
+        /* Анимация шатания при неправильном ответе */
         @keyframes wobble {
             0% { transform: translateX(0) rotate(0deg); }
             15% { transform: translateX(-10px) rotate(-5deg); }
@@ -310,7 +763,7 @@ const appId = firebaseConfig.appId;
             animation: wobble 0.5s ease-in-out;
         }
 
-        /* Positive particle animations */
+        /* Анимации положительных частиц */
         @keyframes star-burst-small {
             from { transform: translate(0, 0) scale(0); opacity: 1; }
             to { transform: translate(var(--x), var(--y)) scale(1.5); opacity: 0; }
@@ -333,7 +786,7 @@ const appId = firebaseConfig.appId;
             will-change: transform, opacity;
         }
 
-        /* New styling for game container with image */
+        /* Новое оформление игрового контейнера с изображением */
         #game-container {
             background-image: url('https://media.istockphoto.com/id/1160720443/vector/abstract-simple-geometric-vector-seamless-pattern-with-gold-line-texture-on-white-background.webp?b=1&s=612x612&w=0&k=20&c=ejtl-XXAFVsHcjNbaxdiT4xzzs5bGtA_CUYkO9ZQ-Jk=');
             background-size: cover;
@@ -343,30 +796,30 @@ const appId = firebaseConfig.appId;
 </head>
 <body class="h-screen w-screen flex items-center justify-center bg-gray-100 p-2 sm:p-4">
 
-<!-- Game Container -->
+<!-- Игровой контейнер -->
 <div id="game-container" class="w-full max-w-sm h-full max-h-[600px] flex flex-col justify-between items-center bg-white rounded-3xl shadow-2xl p-4 relative overflow-hidden">
 
-    <!-- Header with Mute, Score and Timer -->
+    <!-- Заголовок со звуком, счетом и таймером -->
     <div class="w-full flex justify-between items-start mb-4">
-        <!-- Mute button, now always visible and clickable -->
+        <!-- Кнопка отключения звука, теперь всегда видимая и кликабельная -->
         <button id="mute-button" class="bg-gray-200 hover:bg-gray-300 text-gray-700 p-2 rounded-full shadow-md transition-colors duration-200 z-30">
             🔊
         </button>
-        <!-- Right-aligned container for score and timer -->
+        <!-- Контейнер для счета и таймера -->
         <div class="flex flex-col items-end">
-            <div id="score-display" class="text-xl sm:text-2xl font-bold text-gray-800">Счёт: 0</div>
+            <div id="score-display" class="text-xl sm:text-2xl font-bold text-gray-800">Счет: 0</div>
             <div id="timer-display" class="text-lg sm:text-xl font-bold text-red-500">5.0</div>
         </div>
     </div>
 
-    <!-- Card Display Area -->
+    <!-- Область отображения карточки -->
     <div class="relative w-full h-full flex items-center justify-center my-4">
         <div id="card-display" class="text-9xl sm:text-[10rem]"></div>
-        <!-- Container for positive effects -->
+        <!-- Контейнер для положительных эффектов -->
         <div id="effect-container" class="absolute inset-0 z-10 pointer-events-none"></div>
     </div>
 
-    <!-- Control Buttons -->
+    <!-- Кнопки управления -->
     <div class="w-full flex justify-center space-x-2 mb-2">
         <button id="left-button" class="flex-1 bg-red-500 hover:bg-red-600 active:bg-red-700 text-white font-bold py-3 rounded-full shadow-lg transition-all duration-200 transform hover:scale-105 active:scale-100 text-sm">
             Новый
@@ -376,11 +829,11 @@ const appId = firebaseConfig.appId;
         </button>
     </div>
 
-    <!-- Overlay for Start/Game Over -->
+    <!-- Наложение для старта/конца игры -->
     <div id="overlay" class="absolute inset-0 bg-white/90 flex flex-col items-center justify-center text-center p-4 transition-opacity duration-300 z-20">
         <h2 id="overlay-text" class="text-3xl md:text-4xl font-extrabold text-gray-800 mb-2">Пир Капибары</h2>
         <p id="overlay-subtext" class="text-sm md:text-base text-gray-600 mb-4">Проведи влево, если это новый фрукт, вправо — если он уже был.</p>
-        <!-- High score display on the overlay -->
+        <!-- Отображение рекорда на наложении -->
         <div id="high-score-container" class="text-center text-gray-700 mb-4">
             <p id="high-score-display" class="text-lg sm:text-xl font-bold mb-1">Рекорд: 0</p>
             <p id="high-score-message" class="text-sm font-semibold text-green-600 opacity-0 transition-opacity duration-300">Новый рекорд!</p>
@@ -396,13 +849,13 @@ const appId = firebaseConfig.appId;
                 Глобальная таблица лидеров
             </button>
             <button id="donate-button" class="bg-yellow-400 hover:bg-yellow-500 text-white text-sm font-bold py-2 px-6 rounded-full shadow-lg transition-all duration-300 transform hover:scale-105">
-                Покормить Капи звёздами ⭐
+                Покормить Капи звездами ⭐
             </button>
         </div>
         <p id="user-id-display" class="text-xs text-gray-400 mt-2"></p>
     </div>
 
-    <!-- Leaderboard Modal -->
+    <!-- Модальное окно таблицы лидеров -->
     <div id="leaderboard-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-30">
         <div class="bg-white rounded-3xl shadow-2xl p-6 w-11/12 max-w-md max-h-[80%] flex flex-col">
             <div class="flex justify-between items-center mb-4">
@@ -411,13 +864,13 @@ const appId = firebaseConfig.appId;
             </div>
             <div id="leaderboard-list-container" class="overflow-y-auto flex-grow pr-2">
                 <ul id="leaderboard-list" class="space-y-2">
-                    <!-- Leaderboard items will be inserted here by JavaScript -->
+                    <!-- Элементы таблицы лидеров будут вставлены сюда JavaScript -->
                 </ul>
             </div>
         </div>
     </div>
 
-    <!-- Custom Message Box -->
+    <!-- Кастомное сообщение -->
     <div id="message-box" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40">
         <div class="bg-white rounded-xl shadow-2xl p-6 w-11/12 max-w-sm text-center">
             <p id="message-text" class="text-gray-800 font-semibold mb-4"></p>
@@ -426,472 +879,8 @@ const appId = firebaseConfig.appId;
     </div>
 </div>
 
-<!-- Background Music -->
+<!-- Фоновая музыка -->
 <audio id="background-music" src="https://storage.googleapis.com/corpusant-app-public/riffs/4213a202-c6e6-4ab5-987e-6f8c4aeaedf9/audio/ce8a21ee-1f28-465e-b3da-598e2e43b702.m4a" loop></audio>
 
-<script>
-    // Telegram Web Apps integration
-    if (window.Telegram) {
-        Telegram.WebApp.ready();
-        Telegram.WebApp.expand();
-    }
-
-    // DOM elements
-    const gameContainer = document.getElementById('game-container');
-    const scoreDisplay = document.getElementById('score-display');
-    const timerDisplay = document.getElementById('timer-display');
-    const cardDisplay = document.getElementById('card-display');
-    const leftButton = document.getElementById('left-button');
-    const rightButton = document.getElementById('right-button');
-    const overlay = document.getElementById('overlay');
-    const overlayText = document.getElementById('overlay-text');
-    const overlaySubtext = document.getElementById('overlay-subtext');
-    const startButton = document.getElementById('start-button');
-    const chatLeaderboardButton = document.getElementById('chat-leaderboard-button');
-    const globalLeaderboardButton = document.getElementById('global-leaderboard-button');
-    const donateButton = document.getElementById('donate-button');
-    const leaderboardModal = document.getElementById('leaderboard-modal');
-    const leaderboardTitle = document.getElementById('leaderboard-title');
-    const closeLeaderboardButton = document.getElementById('close-leaderboard');
-    const leaderboardList = document.getElementById('leaderboard-list');
-    const effectContainer = document.getElementById('effect-container');
-    const backgroundMusic = document.getElementById('background-music');
-    const muteButton = document.getElementById('mute-button');
-    const highScoreDisplay = document.getElementById('high-score-display');
-    const highScoreMessage = document.getElementById('high-score-message');
-    const messageBox = document.getElementById('message-box');
-    const messageText = document.getElementById('message-text');
-    const messageCloseButton = document.getElementById('message-close-button');
-
-
-    // Game state
-    let score = 0;
-    let highScore = 0;
-    let gameActive = false;
-    let timeRemaining = 5.0;
-    let timerInterval = null;
-    let timeout = null;
-    let seenCards = [];
-    let currentCard = null;
-    let isRepeated = false;
-    let lastAnswerTime = performance.now();
-    let isMuted = false;
-    let roundCount = 0;
-    let isInedible = false;
-
-    // Emojis for the game (expanded list)
-    const emojis = ['🍇', '🍉', '🍊', '🍋', '🍌', '🍍', '🍎', '🍐', '🥝', '🥭', '🍒', '🍓', '🥑', '🥕', '🥔', '🌶️', '🌽', '🥜', '🍔', '🍕', '🌭', '🌮', '🌯', '🥙', '🥪', '🍟', '🧀', '🍖', '🍗', '🍤', '🍣', '🍙', '🍚', '🍜', '🍲', '🍝', '🥗', '🍿', '🍩', '🍪', '🎂', '🍰', '🍫', '🍬', '🍭', '🍮', '🍯', '🍼', '☕', '🍵', '🍶', '🥤', '🧊', '🥐', '🍞', '🥖', '🥨', '🥞', '🧇', '🍳', '🥓', '🥩', '🍗', '🦪', '🦞', '🦐', '🦀', '🦑', '🐙', '🍙', '🍣', '🍤', '🍚', '🍛', '🍜', '🍲', '🥘', '🍢', '🍡', '🍧', '🍨', '🍦', '🥧', '🍮', '🍰', '🎂', '🧁', '🍩', '🍪', '🍫', '🍬', '🍭', '🍯'];
-
-    // Emojis for inedible items
-    const inedibleEmojis = ['👟', '🧦', '💍', '💎', '🔨', '📖', '🚗', '🔑', '🔋', '⚽'];
-
-    // Timer settings
-    const timeLimit = 5000;
-    const timerUpdateInterval = 250;
-
-    // This function sets up all event listeners and is called immediately after the DOM is ready.
-    function setupEventListeners() {
-        startButton.addEventListener('click', startGame);
-        muteButton.addEventListener('click', () => {
-            if (backgroundMusic.paused) {
-                backgroundMusic.play().catch(e => console.error("Autoplay failed:", e));
-                muteButton.textContent = '🔊';
-                isMuted = false;
-            } else {
-                backgroundMusic.pause();
-                muteButton.textContent = '🔇';
-                isMuted = true;
-            }
-        });
-        chatLeaderboardButton.addEventListener('click', async () => {
-            leaderboardTitle.textContent = 'Таблица лидеров чата';
-            leaderboardModal.classList.remove('hidden');
-            const chatInstance = window.getChatInstance();
-            if (!chatInstance) {
-                leaderboardList.innerHTML = '<p class="text-center text-gray-500">Эта таблица лидеров доступна только в групповых чатах.</p>';
-                return;
-            }
-            leaderboardList.innerHTML = '<p class="text-center text-gray-500">Загрузка...</p>';
-            const scores = await window.fetchLeaderboard(false);
-            displayLeaderboard(scores);
-        });
-        globalLeaderboardButton.addEventListener('click', async () => {
-            leaderboardTitle.textContent = 'Глобальная таблица лидеров';
-            leaderboardModal.classList.remove('hidden');
-            leaderboardList.innerHTML = '<p class="text-center text-gray-500">Загрузка...</p>';
-            const scores = await window.fetchLeaderboard(true);
-            displayLeaderboard(scores);
-        });
-        closeLeaderboardButton.addEventListener('click', () => {
-            leaderboardModal.classList.add('hidden');
-        });
-
-        // Add donation button functionality
-        donateButton.addEventListener('click', () => {
-            // Check if Telegram Web Apps supports `showInvoice`
-            if (window.Telegram && Telegram.WebApp.isVersionAtLeast('6.9')) {
-                // Since this is a client-side web app, we can't create a real invoice.
-                // We show a message instead of a broken button.
-                showMessage('Чтобы покормить Капибару звёздами, нужен настоящий сервер. Это всего лишь демо-версия!');
-            } else {
-                console.warn("Telegram Web App version is too old to support showInvoice.");
-                // Provide a fallback or alternative if needed
-                showMessage('Функция оплаты не поддерживается вашей версией Telegram. Обновите приложение.');
-            }
-        });
-
-        // Custom message box close handler
-        messageCloseButton.addEventListener('click', () => {
-            messageBox.classList.add('hidden');
-        });
-
-
-        // Input handlers
-        document.addEventListener('keydown', (e) => {
-            if (!gameActive) return;
-            if (e.key === 'ArrowLeft') handleInput('left');
-            if (e.key === 'ArrowRight') handleInput('right');
-        });
-        leftButton.addEventListener('click', () => { if (gameActive) handleInput('left'); });
-        rightButton.addEventListener('click', () => { if (gameActive) handleInput('right'); });
-
-        // Touch swipe handling for dynamic card movement
-        let touchstartX = 0;
-        let isDragging = false;
-
-        // Start drag
-        gameContainer.addEventListener('touchstart', e => {
-            if (!gameActive) return;
-            touchstartX = e.changedTouches[0].screenX;
-            isDragging = true;
-            cardDisplay.style.transition = 'none'; // Disable CSS transition for smooth dragging
-        }, false);
-
-        // Dynamic card movement during drag
-        gameContainer.addEventListener('touchmove', e => {
-            if (!gameActive || !isDragging) return;
-            const currentX = e.changedTouches[0].screenX;
-            const deltaX = currentX - touchstartX;
-            const maxMove = 100;
-            const move = Math.max(-maxMove, Math.min(maxMove, deltaX));
-            const rotate = move / 10;
-            cardDisplay.style.transform = `translateX(${move}px) rotate(${rotate}deg)`;
-        }, false);
-
-        // End drag
-        gameContainer.addEventListener('touchend', e => {
-            if (!gameActive || !isDragging) return;
-            isDragging = false;
-
-            const touchendX = e.changedTouches[0].screenX;
-
-            // Determine if it was a valid swipe
-            if (touchendX < touchstartX - 50) handleInput('left', touchendX);
-            else if (touchendX > touchstartX + 50) handleInput('right', touchendX);
-            else {
-                // If swipe was too short, snap the card back to original position
-                cardDisplay.style.transition = 'transform 0.2s ease-in-out';
-                cardDisplay.style.transform = '';
-            }
-        }, false);
-    }
-
-    function displayLeaderboard(scores) {
-        leaderboardList.innerHTML = '';
-        if (scores === null) {
-             return;
-        }
-        if (scores.length === 0) {
-            leaderboardList.innerHTML = '<p class="text-center text-gray-500">Пока нет записей. Будьте первым!</p>';
-            return;
-        }
-        scores.forEach((item, index) => {
-            const listItem = document.createElement('li');
-            listItem.classList.add('flex', 'justify-between', 'items-center', 'bg-gray-100', 'p-3', 'rounded-xl', 'shadow-sm');
-
-            const rankText = document.createElement('span');
-            rankText.classList.add('text-lg', 'font-bold', 'text-gray-600');
-            rankText.textContent = `${index + 1}.`;
-
-            const userNameDisplay = item.userName || item.userId;
-            const userText = document.createElement('span');
-            userText.classList.add('text-sm', 'font-mono', 'text-gray-500', 'truncate');
-            userText.textContent = userNameDisplay;
-
-            const scoreText = document.createElement('span');
-            scoreText.classList.add('text-xl', 'font-bold', 'text-blue-600');
-            scoreText.textContent = item.score;
-
-            listItem.appendChild(rankText);
-            listItem.appendChild(userText);
-            listItem.appendChild(scoreText);
-            leaderboardList.appendChild(listItem);
-        });
-    }
-
-    // MainButton functionality
-    if (window.Telegram && Telegram.WebApp.MainButton) {
-        Telegram.WebApp.MainButton.setText("Поделиться счётом");
-        Telegram.WebApp.MainButton.onClick(function() {
-            const shareMessage = `Я набрал ${highScore} очков в игре "Пир Капибары"! Попробуешь побить мой рекорд?`;
-            const shareUrl = `https://t.me/memoryswipebot/start`;
-            Telegram.WebApp.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareMessage)}`);
-        });
-        Telegram.WebApp.MainButton.hide();
-    }
-
-    // Custom message box function
-    function showMessage(text) {
-        messageText.textContent = text;
-        messageBox.classList.remove('hidden');
-    }
-
-    // Main game functions
-    function startGame() {
-        score = 0;
-        seenCards = [];
-        roundCount = 0;
-        gameActive = true;
-        isInedible = false;
-        overlay.classList.add('opacity-0', 'pointer-events-none');
-        highScoreMessage.classList.add('opacity-0');
-        donateButton.classList.remove('hidden'); // Show the donate button on game start
-        updateScore();
-        if (!isMuted) {
-            backgroundMusic.play().catch(error => {
-                console.error("Autoplay failed:", error);
-            });
-        }
-        if (window.Telegram && Telegram.WebApp.MainButton) {
-            Telegram.WebApp.MainButton.hide();
-        }
-        gameLoop();
-    }
-
-    async function endGame(reason) {
-        gameActive = false;
-        clearInterval(timerInterval);
-        clearTimeout(timeout);
-        overlayText.textContent = reason;
-        overlaySubtext.innerHTML = `Ваш счёт: <span class="font-bold text-blue-600">${score}</span> очков.`;
-        startButton.textContent = 'Покормить ещё раз';
-        overlay.classList.remove('opacity-0', 'pointer-events-none');
-        donateButton.classList.remove('hidden'); // Show the donate button on game end
-
-        if (score > window.highScore) {
-            highScore = score;
-            highScoreDisplay.textContent = `Рекорд: ${highScore}`;
-            highScoreMessage.classList.remove('opacity-0');
-            if (window.isAuthReady() && window.getUserId()) {
-                await window.saveHighScore(highScore);
-                await window.saveLeaderboardScore(highScore);
-            }
-        } else {
-            highScore = window.highScore;
-        }
-
-        if (window.Telegram && Telegram.WebApp.MainButton) {
-            Telegram.WebApp.MainButton.show();
-        }
-    }
-
-    function createPositiveEffect() {
-        const particleCount = 10;
-        const particles = ['⭐', '✨', '🌟', '💫', '🌈'];
-        for (let i = 0; i < particleCount; i++) {
-            const particle = document.createElement('div');
-            particle.textContent = particles[Math.floor(Math.random() * particles.length)];
-            particle.classList.add('particle', 'text-4xl');
-
-            const randomX = (Math.random() - 0.5) * 200;
-            const randomY = (Math.random() - 0.5) * 200;
-            const duration = 0.8 + Math.random() * 0.4;
-            const animationClass = ['star-burst-small', 'star-burst-medium', 'star-burst-large'][Math.floor(Math.random() * 3)];
-
-            particle.style.setProperty('--x', `${randomX}px`);
-            particle.style.setProperty('--y', `${randomY}px`);
-            particle.style.animation = `${animationClass} ${duration}s ease-out forwards`;
-
-            effectContainer.appendChild(particle);
-
-            setTimeout(() => {
-                particle.remove();
-            }, duration * 1000);
-        }
-    }
-
-    function handleInput(direction) {
-        let correct = false;
-
-        // Determine correctness
-        if (isInedible) {
-            if (direction === 'right') {
-                correct = true;
-            } else {
-                endGame('Это несъедобно!');
-                return;
-            }
-        } else if (direction === 'left' && !isRepeated) {
-            correct = true;
-        } else if (direction === 'right' && isRepeated) {
-            correct = true;
-        }
-
-        if (correct) {
-            if (window.Telegram && Telegram.WebApp.HapticFeedback) {
-                Telegram.WebApp.HapticFeedback.impactOccurred('light');
-            }
-
-            const timeTaken = performance.now() - lastAnswerTime;
-
-            let points;
-            const gracePeriod = 300;
-            const maxPoints = Math.floor(timeLimit / 5);
-
-            if (timeTaken <= gracePeriod) {
-                points = maxPoints;
-            } else {
-                const timeRemaining = Math.max(0, timeLimit - timeTaken);
-                points = Math.floor(timeRemaining / 5);
-            }
-
-            score += points;
-
-            updateScore();
-            createPositiveEffect();
-
-            // Animate card out based on direction
-            cardDisplay.style.transition = 'none';
-            if (direction === 'left') {
-                let endX, endY, endRotate;
-                endX = -window.innerWidth * 1.5;
-                endY = window.innerHeight * 1.5;
-                endRotate = -45;
-                cardDisplay.style.setProperty('--end-x', `${endX}px`);
-                cardDisplay.style.setProperty('--end-y', `${endY}px`);
-                cardDisplay.style.setProperty('--end-rotate', `${endRotate}deg`);
-                cardDisplay.classList.add('card-animate-out-left');
-                setTimeout(() => {
-                    cardDisplay.classList.remove('card-animate-out-left');
-                    gameLoop();
-                }, 200);
-            } else { // Correct right swipe or inedible swipe
-                cardDisplay.classList.add('card-animate-out-right');
-                setTimeout(() => {
-                    cardDisplay.classList.remove('card-animate-out-right');
-                    gameLoop();
-                }, 200);
-            }
-
-            roundCount++;
-            isInedible = false;
-
-        } else {
-            if (window.Telegram && Telegram.WebApp.HapticFeedback) {
-                Telegram.WebApp.HapticFeedback.notificationOccurred('error');
-            }
-
-            // Incorrect answer wobble animation
-            cardDisplay.classList.add('card-wobble');
-            setTimeout(() => {
-                cardDisplay.classList.remove('card-wobble');
-            }, 500);
-
-            let reason = '';
-            if (direction === 'left' && isRepeated) {
-                reason = 'Я это уже ела!';
-            } else if (direction === 'right' && !isRepeated) {
-                reason = 'Эй! Я это еще не пробовала!';
-            } else {
-                reason = 'Капи уснула...';
-            }
-
-            setTimeout(() => {
-                endGame(reason);
-            }, 150);
-        }
-    }
-
-    function gameLoop() {
-        if (!gameActive) return;
-
-        clearInterval(timerInterval);
-        clearTimeout(timeout);
-        timeRemaining = 5.0;
-        updateTimer();
-        lastAnswerTime = performance.now();
-
-        // Сбрасываем трансформацию карточки перед новым раундом
-        cardDisplay.style.transform = '';
-
-        let newChance = 0.5;
-        // Прогрессивная сложность:
-        if (roundCount < 5) {
-            // Первые 5 ходов: 80% шанс на новый предмет
-            newChance = 0.8;
-        } else {
-            // После 5-го хода: 50% шанс на новый предмет
-            newChance = 0.5;
-        }
-
-        // 10% chance for an inedible item after 30 rounds
-        const shouldBeInedible = roundCount >= 30 && Math.random() < 0.1;
-        isInedible = shouldBeInedible;
-
-        if (isInedible) {
-            currentCard = inedibleEmojis[Math.floor(Math.random() * inedibleEmojis.length)];
-            isRepeated = false;
-        } else {
-            const shouldRepeat = seenCards.length > 0 && Math.random() > newChance;
-            isRepeated = shouldRepeat;
-
-            if (shouldRepeat) {
-                currentCard = seenCards[Math.floor(Math.random() * seenCards.length)];
-            } else {
-                const availableEmojis = emojis.filter(e => !seenCards.includes(e));
-                if (availableEmojis.length === 0) {
-                    endGame('Капи наелась!');
-                    return;
-                }
-                currentCard = availableEmojis[Math.floor(Math.random() * availableEmojis.length)];
-                seenCards.push(currentCard);
-            }
-        }
-
-        cardDisplay.textContent = currentCard;
-        cardDisplay.classList.add('card-animate-in');
-        setTimeout(() => {
-            cardDisplay.classList.remove('card-animate-in');
-        }, 170);
-
-        let startTime = performance.now();
-        timerInterval = setInterval(() => {
-            const elapsedTime = performance.now() - startTime;
-            timeRemaining = Math.max(0, 5 - (elapsedTime / 1000));
-            updateTimer();
-        }, timerUpdateInterval);
-
-        timeout = setTimeout(() => {
-            if (gameActive) {
-                endGame('Капи уснула...');
-            }
-        }, timeLimit);
-    }
-
-    function updateScore() {
-        scoreDisplay.textContent = `Счёт: ${score}`;
-    }
-
-    function updateTimer() {
-        timerDisplay.textContent = timeRemaining.toFixed(1);
-    }
-
-    // Call the event listener setup function directly to ensure buttons work immediately.
-    window.addEventListener('load', () => {
-        setupFirebase();
-        setupEventListeners();
-    });
-
-</script>
 </body>
 </html>
