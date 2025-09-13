@@ -418,6 +418,14 @@ const appId = firebaseConfig.appId;
             </div>
         </div>
     </div>
+
+    <!-- Custom Message Box -->
+    <div id="message-box" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40">
+        <div class="bg-white rounded-xl shadow-2xl p-6 w-11/12 max-w-sm text-center">
+            <p id="message-text" class="text-gray-800 font-semibold mb-4"></p>
+            <button id="message-close-button" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-full">OK</button>
+        </div>
+    </div>
 </div>
 
 <!-- Background Music -->
@@ -453,6 +461,10 @@ const appId = firebaseConfig.appId;
     const muteButton = document.getElementById('mute-button');
     const highScoreDisplay = document.getElementById('high-score-display');
     const highScoreMessage = document.getElementById('high-score-message');
+    const messageBox = document.getElementById('message-box');
+    const messageText = document.getElementById('message-text');
+    const messageCloseButton = document.getElementById('message-close-button');
+
 
     // Game state
     let score = 0;
@@ -533,9 +545,15 @@ const appId = firebaseConfig.appId;
             } else {
                 console.warn("Telegram Web App version is too old to support showInvoice.");
                 // Provide a fallback or alternative if needed
-                alert('Функция оплаты не поддерживается вашей версией Telegram. Обновите приложение.');
+                showMessage('Функция оплаты не поддерживается вашей версией Telegram. Обновите приложение.');
             }
         });
+
+        // Custom message box close handler
+        messageCloseButton.addEventListener('click', () => {
+            messageBox.classList.add('hidden');
+        });
+
 
         // Input handlers
         document.addEventListener('keydown', (e) => {
@@ -629,6 +647,12 @@ const appId = firebaseConfig.appId;
             Telegram.WebApp.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareMessage)}`);
         });
         Telegram.WebApp.MainButton.hide();
+    }
+
+    // Custom message box function
+    function showMessage(text) {
+        messageText.textContent = text;
+        messageBox.classList.remove('hidden');
     }
 
     // Main game functions
