@@ -4,11 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Пир Капибары</title>
-    <!-- Include Tailwind CSS from CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Telegram Web App API -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <!-- Firebase SDKs -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
@@ -87,7 +84,7 @@ const appId = firebaseConfig.appId;
                             const telegramUser = Telegram.WebApp.initDataUnsafe.user;
                             userName = telegramUser.username || telegramUser.first_name + (telegramUser.last_name ? ` ${telegramUser.last_name}` : '');
                         } else {
-                            userName = userId.slice(0, 8); // Use a consistent, truncated ID as a fallback name
+                            userName = userId.slice(0, 0); // Use a consistent, truncated ID as a fallback name
                         }
 
                         isAuthReady = true;
@@ -355,30 +352,23 @@ const appId = firebaseConfig.appId;
 </head>
 <body class="h-screen w-screen flex items-center justify-center bg-gray-100 p-4">
 
-<!-- Game Container -->
 <div id="game-container" class="w-full max-w-sm h-full max-h-[600px] flex flex-col justify-between items-center bg-white rounded-3xl shadow-2xl p-6 relative overflow-hidden">
 
-    <!-- Header with Mute, Score and Timer -->
     <div class="w-full flex justify-between items-start mb-6">
-        <!-- Left-aligned container for mute button -->
         <button id="mute-button" class="bg-gray-200 hover:bg-gray-300 text-gray-700 p-3 rounded-full shadow-md transition-colors duration-200">
             🔊
         </button>
-        <!-- Right-aligned container for score and timer -->
         <div class="flex flex-col items-end">
             <div id="score-display" class="text-3xl font-bold text-gray-800">Счёт: 0</div>
             <div id="timer-display" class="text-xl font-bold text-red-500">5.0</div>
         </div>
     </div>
 
-    <!-- Card Display Area -->
     <div class="relative w-full h-full flex items-center justify-center mb-12">
         <div id="card-display" class="text-[12rem]"></div>
-        <!-- Container for positive effects -->
         <div id="effect-container" class="absolute inset-0 z-10 pointer-events-none"></div>
     </div>
 
-    <!-- Control Buttons -->
     <div class="w-full flex justify-center space-x-4 mb-4">
         <button id="left-button" class="flex-1 bg-red-500 hover:bg-red-600 active:bg-red-700 text-white font-bold py-4 rounded-full shadow-lg transition-all duration-200 transform hover:scale-105 active:scale-100">
             Новый
@@ -388,11 +378,9 @@ const appId = firebaseConfig.appId;
         </button>
     </div>
 
-    <!-- Overlay for Start/Game Over -->
     <div id="overlay" class="absolute inset-0 bg-white/90 flex flex-col items-center justify-center text-center p-8 transition-opacity duration-300 z-20">
         <h2 id="overlay-text" class="text-4xl md:text-5xl font-extrabold text-gray-800 mb-4">Пир Капибары</h2>
         <p id="overlay-subtext" class="text-lg md:text-xl text-gray-600 mb-8">Проведи влево, если это новый фрукт, вправо — если он уже был.</p>
-        <!-- High score display on the overlay -->
         <div id="high-score-container" class="text-center text-gray-700 mb-6">
             <p id="high-score-display" class="text-2xl font-bold mb-2">Рекорд: 0</p>
             <p id="high-score-message" class="text-lg font-semibold text-green-600 opacity-0 transition-opacity duration-300">Новый рекорд!</p>
@@ -411,7 +399,6 @@ const appId = firebaseConfig.appId;
         <p id="user-id-display" class="text-xs text-gray-400 mt-4"></p>
     </div>
 
-    <!-- Leaderboard Modal -->
     <div id="leaderboard-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-30">
         <div class="bg-white rounded-3xl shadow-2xl p-6 w-11/12 max-w-md max-h-[80%] flex flex-col">
             <div class="flex justify-between items-center mb-4">
@@ -420,14 +407,12 @@ const appId = firebaseConfig.appId;
             </div>
             <div id="leaderboard-list-container" class="overflow-y-auto flex-grow pr-2">
                 <ul id="leaderboard-list" class="space-y-2">
-                    <!-- Leaderboard items will be inserted here by JavaScript -->
                 </ul>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Background Music -->
 <audio id="background-music" src="https://storage.googleapis.com/corpusant-app-public/riffs/4213a202-c6e6-4ab5-987e-6f8c4aeaedf9/audio/ce8a21ee-1f28-465e-b3da-598e2e43b702.m4a" loop></audio>
 
 <script>
@@ -472,10 +457,14 @@ const appId = firebaseConfig.appId;
     let isRepeated = false;
     let lastAnswerTime = performance.now();
     let isMuted = false;
-    let isFirstTurn = true;
+    let roundCount = 0; // Добавлено: счётчик раундов
+    let isInedible = false;
 
     // Emojis for the game (expanded list)
     const emojis = ['🍇', '🍉', '🍊', '🍋', '🍌', '🍍', '🍎', '🍐', '🥝', '🥭', '🍒', '🍓', '🥑', '🥕', '🥔', '🌶️', '🌽', '🍄', '🥜', '🍔', '🍕', '🌭', '🌮', '🌯', '🥙', '🥪', '🍟', '🧀', '🍖', '🍗', '🍤', '🍣', '🍙', '🍚', '🍜', '🍲', '🍝', '🥗', '🍿', '🍩', '🍪', '🎂', '🍰', '🍫', '🍬', '🍭', '🍮', '🍯', '🍼', '☕', '🍵', '🍶', '🍺', '🥤', '🧊', '🥐', '🍞', '🥖', '🥨', '🥞', '🧇', '🍳', '🥓', '🥩', '🍗', '🦪', '🦞', '🦐', '🦀', '🦑', '🐙', '🍙', '🍣', '🍤', '🍚', '🍛', '🍜', '🍲', '🥘', '🍢', '🍡', '🍧', '🍨', '🍦', '🥧', '🍮', '🍰', '🎂', '🧁', '🍩', '🍪', '🍫', '🍬', '🍭', '🍯'];
+
+    // Emojis for inedible items
+    const inedibleEmojis = ['👟', '🧦', '💍', '💎', '🔨', '📖', '🚗', '🔑', '🔋', '⚽'];
 
     // Timer settings
     const timeLimit = 5000;
@@ -486,7 +475,7 @@ const appId = firebaseConfig.appId;
     // Mute button handler
     muteButton.addEventListener('click', () => {
         if (backgroundMusic.paused) {
-            backgroundMusic.play();
+            backgroundMusic.play().catch(e => console.error("Autoplay failed:", e));
             muteButton.textContent = '🔊';
             isMuted = false;
         } else {
@@ -527,8 +516,6 @@ const appId = firebaseConfig.appId;
     function displayLeaderboard(scores) {
         leaderboardList.innerHTML = '';
         if (scores === null) {
-             // This case is handled in the click handler for chat leaderboard
-             // and should not be reached for the global leaderboard
              return;
         }
         if (scores.length === 0) {
@@ -543,7 +530,7 @@ const appId = firebaseConfig.appId;
             rankText.classList.add('text-lg', 'font-bold', 'text-gray-600');
             rankText.textContent = `${index + 1}.`;
 
-            const userNameDisplay = item.userName || item.userId; // Use userName if available, otherwise fallback to userId
+            const userNameDisplay = item.userName || item.userId;
             const userText = document.createElement('span');
             userText.classList.add('text-sm', 'font-mono', 'text-gray-500', 'truncate');
             userText.textContent = userNameDisplay;
@@ -559,13 +546,11 @@ const appId = firebaseConfig.appId;
         });
     }
 
-
     // MainButton functionality
     if (window.Telegram && Telegram.WebApp.MainButton) {
         Telegram.WebApp.MainButton.setText("Поделиться счётом");
         Telegram.WebApp.MainButton.onClick(function() {
             const shareMessage = `Я накормил Капи и набрал ${score} очков! Сможешь побить мой рекорд ${highScore}?`;
-            // Open a new Telegram message draft with the share text
             Telegram.WebApp.openTelegramLink(`https://t.me/share/url?url=&text=${encodeURIComponent(shareMessage)}`);
         });
         Telegram.WebApp.MainButton.hide();
@@ -600,8 +585,9 @@ const appId = firebaseConfig.appId;
     function startGame() {
         score = 0;
         seenCards = [];
+        roundCount = 0; // Сброс счётчика раундов
         gameActive = true;
-        isFirstTurn = true;
+        isInedible = false;
         overlay.classList.add('opacity-0', 'pointer-events-none');
         highScoreMessage.classList.add('opacity-0');
         updateScore();
@@ -625,14 +611,12 @@ const appId = firebaseConfig.appId;
         startButton.textContent = 'Покормить ещё раз';
         overlay.classList.remove('opacity-0', 'pointer-events-none');
 
-        // Check and save high score
         if (score > window.highScore) {
             highScore = score;
             highScoreDisplay.textContent = `Рекорд: ${highScore}`;
             highScoreMessage.classList.remove('opacity-0');
             if (window.isAuthReady() && window.getUserId()) {
                 await window.saveHighScore(highScore);
-                // Also save to all leaderboards
                 await window.saveLeaderboardScore(highScore);
             }
         } else {
@@ -674,10 +658,15 @@ const appId = firebaseConfig.appId;
         let animationClass = '';
         let isCorrectRepeatRight = false;
 
-        if (isFirstTurn) {
-            correct = true;
-            animationClass = 'card-animate-out-correct-left';
-            isFirstTurn = false;
+        if (isInedible) {
+            if (direction === 'right') {
+                correct = true;
+                isCorrectRepeatRight = true;
+                animationClass = 'card-animate-out-correct-right-burst';
+            } else {
+                endGame('Эй! Это несъедобно!');
+                return;
+            }
         } else if (direction === 'left' && !isRepeated) {
             correct = true;
             animationClass = 'card-animate-out-correct-left';
@@ -712,6 +701,8 @@ const appId = firebaseConfig.appId;
             updateScore();
             createPositiveEffect();
             cardDisplay.classList.add(animationClass);
+            roundCount++;
+            isInedible = false;
 
             const timeoutDuration = isCorrectRepeatRight ? 200 : 100;
 
@@ -750,18 +741,38 @@ const appId = firebaseConfig.appId;
         updateTimer();
         lastAnswerTime = performance.now();
 
-        const shouldRepeat = seenCards.length > 0 && Math.random() < 0.5;
-        isRepeated = shouldRepeat;
-        if (shouldRepeat) {
-            currentCard = seenCards[Math.floor(Math.random() * seenCards.length)];
+        let newChance = 0.5;
+        // Прогрессивная сложность:
+        if (roundCount < 5) {
+            // Первые 5 ходов: 80% шанс на новый предмет
+            newChance = 0.8;
         } else {
-            const availableEmojis = emojis.filter(e => !seenCards.includes(e));
-            if (availableEmojis.length === 0) {
-                endGame('Капи наелась!');
-                return;
+            // После 5-го хода: 50% шанс на новый предмет
+            newChance = 0.5;
+        }
+
+        // 10% chance for an inedible item after 30 rounds
+        const shouldBeInedible = roundCount >= 30 && Math.random() < 0.1;
+        isInedible = shouldBeInedible;
+
+        if (isInedible) {
+            currentCard = inedibleEmojis[Math.floor(Math.random() * inedibleEmojis.length)];
+            isRepeated = false;
+        } else {
+            const shouldRepeat = seenCards.length > 0 && Math.random() > newChance;
+            isRepeated = shouldRepeat;
+
+            if (shouldRepeat) {
+                currentCard = seenCards[Math.floor(Math.random() * seenCards.length)];
+            } else {
+                const availableEmojis = emojis.filter(e => !seenCards.includes(e));
+                if (availableEmojis.length === 0) {
+                    endGame('Капи наелась!');
+                    return;
+                }
+                currentCard = availableEmojis[Math.floor(Math.random() * availableEmojis.length)];
+                seenCards.push(currentCard);
             }
-            currentCard = availableEmojis[Math.floor(Math.random() * availableEmojis.length)];
-            seenCards.push(currentCard);
         }
 
         cardDisplay.textContent = currentCard;
