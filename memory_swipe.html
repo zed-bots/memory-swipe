@@ -343,62 +343,65 @@ const appId = firebaseConfig.appId;
         }
     </style>
 </head>
-<body class="h-screen w-screen flex items-center justify-center bg-gray-100 p-4">
+<body class="h-screen w-screen flex items-center justify-center bg-gray-100 p-2 sm:p-4">
 
 <!-- Game Container -->
-<div id="game-container" class="w-full max-w-sm h-full max-h-[600px] flex flex-col justify-between items-center bg-white rounded-3xl shadow-2xl p-6 relative overflow-hidden">
+<div id="game-container" class="w-full max-w-sm h-full max-h-[600px] flex flex-col justify-between items-center bg-white rounded-3xl shadow-2xl p-4 relative overflow-hidden">
 
     <!-- Header with Mute, Score and Timer -->
-    <div class="w-full flex justify-between items-start mb-6">
+    <div class="w-full flex justify-between items-start mb-4">
         <!-- Mute button, now always visible and clickable -->
-        <button id="mute-button" class="bg-gray-200 hover:bg-gray-300 text-gray-700 p-3 rounded-full shadow-md transition-colors duration-200 z-30">
+        <button id="mute-button" class="bg-gray-200 hover:bg-gray-300 text-gray-700 p-2 rounded-full shadow-md transition-colors duration-200 z-30">
             🔊
         </button>
         <!-- Right-aligned container for score and timer -->
         <div class="flex flex-col items-end">
-            <div id="score-display" class="text-3xl font-bold text-gray-800">Счёт: 0</div>
-            <div id="timer-display" class="text-xl font-bold text-red-500">5.0</div>
+            <div id="score-display" class="text-xl sm:text-2xl font-bold text-gray-800">Счёт: 0</div>
+            <div id="timer-display" class="text-lg sm:text-xl font-bold text-red-500">5.0</div>
         </div>
     </div>
 
     <!-- Card Display Area -->
-    <div class="relative w-full h-full flex items-center justify-center mb-12">
-        <div id="card-display" class="text-[12rem]"></div>
+    <div class="relative w-full h-full flex items-center justify-center my-4">
+        <div id="card-display" class="text-9xl sm:text-[10rem]"></div>
         <!-- Container for positive effects -->
         <div id="effect-container" class="absolute inset-0 z-10 pointer-events-none"></div>
     </div>
 
     <!-- Control Buttons -->
-    <div class="w-full flex justify-center space-x-4 mb-4">
-        <button id="left-button" class="flex-1 bg-red-500 hover:bg-red-600 active:bg-red-700 text-white font-bold py-4 rounded-full shadow-lg transition-all duration-200 transform hover:scale-105 active:scale-100">
+    <div class="w-full flex justify-center space-x-2 mb-2">
+        <button id="left-button" class="flex-1 bg-red-500 hover:bg-red-600 active:bg-red-700 text-white font-bold py-3 rounded-full shadow-lg transition-all duration-200 transform hover:scale-105 active:scale-100 text-sm">
             Новый
         </button>
-        <button id="right-button" class="flex-1 bg-green-500 hover:bg-green-600 active:bg-green-700 text-white font-bold py-4 rounded-full shadow-lg transition-all duration-200 transform hover:scale-105 active:scale-100">
+        <button id="right-button" class="flex-1 bg-green-500 hover:bg-green-600 active:bg-green-700 text-white font-bold py-3 rounded-full shadow-lg transition-all duration-200 transform hover:scale-105 active:scale-100 text-sm">
             Повтор
         </button>
     </div>
 
     <!-- Overlay for Start/Game Over -->
-    <div id="overlay" class="absolute inset-0 bg-white/90 flex flex-col items-center justify-center text-center p-8 transition-opacity duration-300 z-20">
-        <h2 id="overlay-text" class="text-4xl md:text-5xl font-extrabold text-gray-800 mb-4">Пир Капибары</h2>
-        <p id="overlay-subtext" class="text-lg md:text-xl text-gray-600 mb-8">Проведи влево, если это новый фрукт, вправо — если он уже был.</p>
+    <div id="overlay" class="absolute inset-0 bg-white/90 flex flex-col items-center justify-center text-center p-4 transition-opacity duration-300 z-20">
+        <h2 id="overlay-text" class="text-3xl md:text-4xl font-extrabold text-gray-800 mb-2">Пир Капибары</h2>
+        <p id="overlay-subtext" class="text-sm md:text-base text-gray-600 mb-4">Проведи влево, если это новый фрукт, вправо — если он уже был.</p>
         <!-- High score display on the overlay -->
-        <div id="high-score-container" class="text-center text-gray-700 mb-6">
-            <p id="high-score-display" class="text-2xl font-bold mb-2">Рекорд: 0</p>
-            <p id="high-score-message" class="text-lg font-semibold text-green-600 opacity-0 transition-opacity duration-300">Новый рекорд!</p>
+        <div id="high-score-container" class="text-center text-gray-700 mb-4">
+            <p id="high-score-display" class="text-lg sm:text-xl font-bold mb-1">Рекорд: 0</p>
+            <p id="high-score-message" class="text-sm font-semibold text-green-600 opacity-0 transition-opacity duration-300">Новый рекорд!</p>
         </div>
-        <button id="start-button" class="bg-blue-600 hover:bg-blue-700 text-white text-2xl font-bold py-4 px-12 rounded-full shadow-lg transition-all duration-300 transform hover:scale-105">
+        <button id="start-button" class="bg-blue-600 hover:bg-blue-700 text-white text-lg font-bold py-3 px-8 rounded-full shadow-lg transition-all duration-300 transform hover:scale-105">
             Накормить Капи
         </button>
-        <div class="flex flex-col mt-4 space-y-2 w-full max-w-xs">
-            <button id="chat-leaderboard-button" class="bg-gray-500 hover:bg-gray-600 text-white text-lg font-bold py-3 px-8 rounded-full shadow-lg transition-all duration-300 transform hover:scale-105">
+        <div class="flex flex-col mt-3 space-y-2 w-full max-w-xs">
+            <button id="chat-leaderboard-button" class="bg-gray-500 hover:bg-gray-600 text-white text-sm font-bold py-2 px-6 rounded-full shadow-lg transition-all duration-300 transform hover:scale-105">
                 Таблица лидеров чата
             </button>
-            <button id="global-leaderboard-button" class="bg-gray-500 hover:bg-gray-600 text-white text-lg font-bold py-3 px-8 rounded-full shadow-lg transition-all duration-300 transform hover:scale-105">
+            <button id="global-leaderboard-button" class="bg-gray-500 hover:bg-gray-600 text-white text-sm font-bold py-2 px-6 rounded-full shadow-lg transition-all duration-300 transform hover:scale-105">
                 Глобальная таблица лидеров
             </button>
+            <button id="donate-button" class="hidden bg-yellow-400 hover:bg-yellow-500 text-white text-sm font-bold py-2 px-6 rounded-full shadow-lg transition-all duration-300 transform hover:scale-105">
+                Покормить Капи звёздами ⭐
+            </button>
         </div>
-        <p id="user-id-display" class="text-xs text-gray-400 mt-4"></p>
+        <p id="user-id-display" class="text-xs text-gray-400 mt-2"></p>
     </div>
 
     <!-- Leaderboard Modal -->
@@ -440,6 +443,7 @@ const appId = firebaseConfig.appId;
     const startButton = document.getElementById('start-button');
     const chatLeaderboardButton = document.getElementById('chat-leaderboard-button');
     const globalLeaderboardButton = document.getElementById('global-leaderboard-button');
+    const donateButton = document.getElementById('donate-button');
     const leaderboardModal = document.getElementById('leaderboard-modal');
     const leaderboardTitle = document.getElementById('leaderboard-title');
     const closeLeaderboardButton = document.getElementById('close-leaderboard');
@@ -510,6 +514,27 @@ const appId = firebaseConfig.appId;
         });
         closeLeaderboardButton.addEventListener('click', () => {
             leaderboardModal.classList.add('hidden');
+        });
+
+        // Add donation button functionality
+        donateButton.addEventListener('click', () => {
+            // Check if Telegram Web Apps supports `showInvoice`
+            if (window.Telegram && Telegram.WebApp.isVersionAtLeast('6.9')) {
+                // Show a fake invoice for a donation of 10 stars
+                Telegram.WebApp.showInvoice('telegram_stars_donate', (status) => {
+                    if (status === 'paid') {
+                        // Display a success message or perform other actions
+                        overlaySubtext.innerHTML = '<span class="text-green-600 font-bold">Спасибо! Капи очень рада вашему подарку.</span>';
+                    } else {
+                        // Display a failure message
+                        overlaySubtext.innerHTML = '<span class="text-red-600 font-bold">Оплата не удалась.</span>';
+                    }
+                });
+            } else {
+                console.warn("Telegram Web App version is too old to support showInvoice.");
+                // Provide a fallback or alternative if needed
+                alert('Функция оплаты не поддерживается вашей версией Telegram. Обновите приложение.');
+            }
         });
 
         // Input handlers
@@ -615,6 +640,7 @@ const appId = firebaseConfig.appId;
         isInedible = false;
         overlay.classList.add('opacity-0', 'pointer-events-none');
         highScoreMessage.classList.add('opacity-0');
+        donateButton.classList.add('hidden'); // Hide the donate button on game start
         updateScore();
         if (!isMuted) {
             backgroundMusic.play().catch(error => {
@@ -635,6 +661,7 @@ const appId = firebaseConfig.appId;
         overlaySubtext.innerHTML = `Ваш счёт: <span class="font-bold text-blue-600">${score}</span> очков.`;
         startButton.textContent = 'Покормить ещё раз';
         overlay.classList.remove('opacity-0', 'pointer-events-none');
+        donateButton.classList.remove('hidden'); // Show the donate button on game end
 
         if (score > window.highScore) {
             highScore = score;
@@ -785,8 +812,8 @@ const appId = firebaseConfig.appId;
         let newChance = 0.5;
         // Прогрессивная сложность:
         if (roundCount < 5) {
-            // Первые 5 ходов: 90% шанс на новый предмет
-            newChance = 0.9;
+            // Первые 5 ходов: 80% шанс на новый предмет
+            newChance = 0.8;
         } else {
             // После 5-го хода: 50% шанс на новый предмет
             newChance = 0.5;
