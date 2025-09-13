@@ -15,10 +15,20 @@
         import { getFirestore, doc, getDoc, setDoc, collection, query, orderBy, limit, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Firebase-related global variables provided by the environment
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+    // Firebase-related global variables provided by the environment
+        const firebaseConfig = {
+  apiKey: "AIzaSyDQXqft_-EFfA58xUuhKKbCl8HnNx00ihg",
+  authDomain: "memory-swipe.firebaseapp.com",
+  databaseURL: "https://memory-swipe-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "memory-swipe",
+  storageBucket: "memory-swipe.firebasestorage.app",
+  messagingSenderId: "800130343271",
+  appId: "1:800130343271:web:1468523f03220434890fc2",
+  measurementId: "G-MXWK0B1ZVY"
+};
+
+const appId = firebaseConfig.appId;
+        const initialAuthToken = null;
 
         let db = null;
         let auth = null;
@@ -84,7 +94,6 @@
                         console.log(`User authenticated with ID: ${userId}`);
                         document.getElementById('user-id-display').textContent = `ID пользователя: ${userName}`;
                         await loadHighScore();
-                        setupEventListeners(); // Call the event listener setup function after auth
                     } else {
                         // Handle case where authentication fails or user logs out
                         userId = null;
@@ -92,7 +101,6 @@
                         isAuthReady = true;
                         document.getElementById('user-id-display').textContent = `ID пользователя: Анонимный`;
                         console.log("No user is signed in.");
-                        setupEventListeners(); // Call the event listener setup even if not authenticated
                     }
                 });
 
@@ -481,7 +489,7 @@
     const timeLimit = 5000;
     const timerUpdateInterval = 250;
 
-    // A single function to set up all event listeners after Firebase is ready
+    // This function sets up all event listeners and is called immediately after the DOM is ready.
     function setupEventListeners() {
         startButton.addEventListener('click', startGame);
         muteButton.addEventListener('click', () => {
@@ -877,6 +885,13 @@
     function updateTimer() {
         timerDisplay.textContent = timeRemaining.toFixed(1);
     }
+
+    // Call the event listener setup function directly to ensure buttons work immediately.
+    window.addEventListener('load', () => {
+        setupFirebase();
+        setupEventListeners();
+    });
+
 </script>
 </body>
 </html>
