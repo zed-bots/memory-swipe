@@ -94,6 +94,7 @@ const appId = firebaseConfig.appId;
                         console.log(`User authenticated with ID: ${userId}`);
                         document.getElementById('user-id-display').textContent = `ID пользователя: ${userName}`;
                         await loadHighScore();
+                        setupEventListeners(); // Call the event listener setup function after auth
                     } else {
                         // Handle case where authentication fails or user logs out
                         userId = null;
@@ -101,6 +102,7 @@ const appId = firebaseConfig.appId;
                         isAuthReady = true;
                         document.getElementById('user-id-display').textContent = `ID пользователя: Анонимный`;
                         console.log("No user is signed in.");
+                        setupEventListeners(); // Call the event listener setup even if not authenticated
                     }
                 });
 
@@ -485,48 +487,92 @@ const appId = firebaseConfig.appId;
     const timeLimit = 5000;
     const timerUpdateInterval = 250;
 
-    // Start button handler
-    startButton.addEventListener('click', startGame);
-    // Mute button handler
-    muteButton.addEventListener('click', () => {
-        if (backgroundMusic.paused) {
-            backgroundMusic.play().catch(e => console.error("Autoplay failed:", e));
-            muteButton.textContent = '🔊';
-            isMuted = false;
-        } else {
-            backgroundMusic.pause();
-            muteButton.textContent = '🔇';
-            isMuted = true;
-        }
-    });
+    // A single function to set up all event listeners after Firebase is ready
+    function setupEventListeners() {
+        startButton.addEventListener('click', startGame);
+        muteButton.addEventListener('click', () => {
+            if (backgroundMusic.paused) {
+                backgroundMusic.play().catch(e => console.error("Autoplay failed:", e));
+                muteButton.textContent = '🔊';
+                isMuted = false;
+            } else {
+                backgroundMusic.pause();
+                muteButton.textContent = '🔇';
+                isMuted = true;
+            }
+        });
+        chatLeaderboardButton.addEventListener('click', async () => {
+            leaderboardTitle.textContent = 'Таблица лидеров чата';
+            leaderboardModal.classList.remove('hidden');
+            const chatInstance = window.getChatInstance();
+            if (!chatInstance) {
+                leaderboardList.innerHTML = '<p class="text-center text-gray-500">Эта таблица лидеров доступна только в групповых чатах.</p>';
+                return;
+            }
+            leaderboardList.innerHTML = '<p class="text-center text-gray-500">Загрузка...</p>';
+            const scores = await window.fetchLeaderboard(false);
+            displayLeaderboard(scores);
+        });
+        globalLeaderboardButton.addEventListener('click', async () => {
+            leaderboardTitle.textContent = 'Глобальная таблица лидеров';
+            leaderboardModal.classList.remove('hidden');
+            leaderboardList.innerHTML = '<p class="text-center text-gray-500">Загрузка...</p>';
+            const scores = await window.fetchLeaderboard(true);
+            displayLeaderboard(scores);
+        });
+        closeLeaderboardButton.addEventListener('click', () => {
+            leaderboardModal.classList.add('hidden');
+        });
 
-    // Leaderboard button handlers
-    chatLeaderboardButton.addEventListener('click', async () => {
-        leaderboardTitle.textContent = 'Таблица лидеров чата';
-        leaderboardModal.classList.remove('hidden');
+        // Input handlers
+        document.addEventListener('keydown', (e) => {
+            if (!gameActive) return;
+            if (e.key === 'ArrowLeft') handleInput('left');
+            if (e.key === 'ArrowRight') handleInput('right');
+        });
+        leftButton.addEventListener('click', () => { if (gameActive) handleInput('left'); });
+        rightButton.addEventListener('click', () => { if (gameActive) handleInput('right'); });
 
-        const chatInstance = window.getChatInstance();
-        if (!chatInstance) {
-            leaderboardList.innerHTML = '<p class="text-center text-gray-500">Эта таблица лидеров доступна только в групповых чатах.</p>';
-            return;
-        }
+        // Touch swipe handling for dynamic card movement
+        let touchstartX = 0;
+        let isDragging = false;
 
-        leaderboardList.innerHTML = '<p class="text-center text-gray-500">Загрузка...</p>';
-        const scores = await window.fetchLeaderboard(false);
-        displayLeaderboard(scores);
-    });
+        // Start drag
+        gameContainer.addEventListener('touchstart', e => {
+            if (!gameActive) return;
+            touchstartX = e.changedTouches[0].screenX;
+            isDragging = true;
+            cardDisplay.style.transition = 'none'; // Disable CSS transition for smooth dragging
+        }, false);
 
-    globalLeaderboardButton.addEventListener('click', async () => {
-        leaderboardTitle.textContent = 'Глобальная таблица лидеров';
-        leaderboardModal.classList.remove('hidden');
-        leaderboardList.innerHTML = '<p class="text-center text-gray-500">Загрузка...</p>';
-        const scores = await window.fetchLeaderboard(true);
-        displayLeaderboard(scores);
-    });
+        // Dynamic card movement during drag
+        gameContainer.addEventListener('touchmove', e => {
+            if (!gameActive || !isDragging) return;
+            const currentX = e.changedTouches[0].screenX;
+            const deltaX = currentX - touchstartX;
+            const maxMove = 100; // Максимальное смещение в пикселях
+            const move = Math.max(-maxMove, Math.min(maxMove, deltaX));
+            const rotate = move / 10; // Небольшой поворот, пропорциональный движению
+            cardDisplay.style.transform = `translateX(${move}px) rotate(${rotate}deg)`;
+        }, false);
 
-    closeLeaderboardButton.addEventListener('click', () => {
-        leaderboardModal.classList.add('hidden');
-    });
+        // End drag
+        gameContainer.addEventListener('touchend', e => {
+            if (!gameActive || !isDragging) return;
+            isDragging = false;
+
+            const touchendX = e.changedTouches[0].screenX;
+            cardDisplay.style.transition = ''; // Enable CSS transition back
+
+            // Determine if it was a valid swipe
+            if (touchendX < touchstartX - 50) handleInput('left');
+            else if (touchendX > touchstartX + 50) handleInput('right');
+            else {
+                // If swipe was too short, snap the card back to original position
+                cardDisplay.style.transform = '';
+            }
+        }, false);
+    }
 
     function displayLeaderboard(scores) {
         leaderboardList.innerHTML = '';
@@ -569,31 +615,6 @@ const appId = firebaseConfig.appId;
             Telegram.WebApp.openTelegramLink(`https://t.me/share/url?url=&text=${encodeURIComponent(shareMessage)}`);
         });
         Telegram.WebApp.MainButton.hide();
-    }
-
-    // Input handlers
-    document.addEventListener('keydown', (e) => {
-        if (!gameActive) return;
-        if (e.key === 'ArrowLeft') handleInput('left');
-        if (e.key === 'ArrowRight') handleInput('right');
-    });
-    leftButton.addEventListener('click', () => { if (gameActive) handleInput('left'); });
-    rightButton.addEventListener('click', () => { if (gameActive) handleInput('right'); });
-
-    // Touch swipe handling
-    let touchstartX = 0;
-    let touchendX = 0;
-    gameContainer.addEventListener('touchstart', e => {
-        touchstartX = e.changedTouches[0].screenX;
-    }, false);
-    gameContainer.addEventListener('touchend', e => {
-        touchendX = e.changedTouches[0].screenX;
-        handleGesture();
-    }, false);
-    function handleGesture() {
-        if (!gameActive) return;
-        if (touchendX < touchstartX - 50) handleInput('left');
-        if (touchendX > touchstartX + 50) handleInput('right');
     }
 
     // Main game functions
@@ -672,6 +693,9 @@ const appId = firebaseConfig.appId;
         let correct = false;
         let animationClass = '';
         let isCorrectRepeatRight = false;
+
+        // Сбрасываем трансформацию перед началом финальной анимации
+        cardDisplay.style.transform = '';
 
         if (isInedible) {
             if (direction === 'right') {
@@ -755,6 +779,9 @@ const appId = firebaseConfig.appId;
         timeRemaining = 5.0;
         updateTimer();
         lastAnswerTime = performance.now();
+
+        // Сбрасываем трансформацию карточки перед новым раундом
+        cardDisplay.style.transform = '';
 
         let newChance = 0.5;
         // Прогрессивная сложность:
