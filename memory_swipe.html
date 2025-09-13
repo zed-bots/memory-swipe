@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Пир Капибары</title>
+    <title>Пир Капибары (демо оплаты)</title>
     <!-- Подключаем Tailwind CSS через CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Telegram Web App API -->
@@ -15,20 +15,10 @@
         import { getFirestore, doc, getDoc, setDoc, collection, query, orderBy, limit, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-    // Firebase-related global variables provided by the environment
-        const firebaseConfig = {
-  apiKey: "AIzaSyDQXqft_-EFfA58xUuhKKbCl8HnNx00ihg",
-  authDomain: "memory-swipe.firebaseapp.com",
-  databaseURL: "https://memory-swipe-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "memory-swipe",
-  storageBucket: "memory-swipe.firebasestorage.app",
-  messagingSenderId: "800130343271",
-  appId: "1:800130343271:web:1468523f03220434890fc2",
-  measurementId: "G-MXWK0B1ZVY"
-};
-
-const appId = firebaseConfig.appId;
-        const initialAuthToken = null;
+        // Глобальные переменные Firebase, предоставленные средой Canvas
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
         let db = null;
         let auth = null;
@@ -318,15 +308,27 @@ const appId = firebaseConfig.appId;
             });
 
             // Добавляем функциональность кнопки пожертвования
-            donateButton.addEventListener('click', () => {
-                // Проверяем, поддерживает ли Telegram Web Apps `showInvoice`
+            donateButton.addEventListener('click', async () => {
+                // Это демонстрация, как бы выглядел вызов
                 if (window.Telegram && Telegram.WebApp.isVersionAtLeast('6.9')) {
-                    // Поскольку это клиентское веб-приложение, мы не можем создать настоящий счет.
-                    // Вместо этого показываем сообщение.
-                    showMessage('Чтобы покормить Капибару звёздами, нужен настоящий сервер. Это всего лишь демо-версия!');
+                    // Используем заглушку для URL-адреса счета, так как у нас нет сервера
+                    const mockInvoiceUrl = "https://t.me/invoice/6744a6b5-0c7f-44e2-892f-ac9d216f4044";
+
+                    try {
+                        // Вызываем showInvoice, который откроет интерфейс оплаты Telegram
+                        Telegram.WebApp.showInvoice(mockInvoiceUrl, (status) => {
+                            if (status === 'paid') {
+                                showMessage('Спасибо, что накормили Капибару!');
+                            } else {
+                                showMessage('Оплата не прошла. Пожалуйста, попробуйте снова.');
+                            }
+                        });
+                    } catch (e) {
+                        console.error("Ошибка при вызове showInvoice:", e);
+                        showMessage('Произошла ошибка при попытке оплаты. Возможно, ваша версия Telegram не поддерживает эту функцию.');
+                    }
                 } else {
                     console.warn("Версия Telegram Web App слишком старая для поддержки showInvoice.");
-                    // Предоставляем запасной вариант, если необходимо
                     showMessage('Функция оплаты не поддерживается вашей версией Telegram. Обновите приложение.');
                 }
             });
