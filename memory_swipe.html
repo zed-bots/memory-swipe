@@ -262,35 +262,23 @@ const appId = firebaseConfig.appId;
             animation: fly-in 0.17s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
         }
 
-        /* New animation for correct answer, flying straight down */
+        /* Animation for correct answer, flying straight down */
         @keyframes fly-out-down {
             from {
-                transform: translate(0, 0) scale(1);
+                transform: translate(0, 0) scale(1) rotate(0deg);
                 opacity: 1;
             }
             to {
-                transform: translate(0, 100%) scale(0.5);
+                transform: translate(var(--end-x), var(--end-y)) scale(0.5) rotate(var(--end-rotate));
                 opacity: 0;
             }
         }
 
-        .card-animate-out-correct-left {
-            animation: fly-out-down 0.1s cubic-bezier(0.55, 0.085, 0.68, 0.53) forwards;
+        .card-animate-out-left {
+            animation: fly-out-down 0.2s ease-in-out forwards;
         }
 
-        /* Animation for correct answer, flying out to the right */
-        @keyframes fly-out-right {
-            from {
-                transform: translate(0, 0) scale(1);
-                opacity: 1;
-            }
-            to {
-                transform: translate(100%, 100%) scale(0.5);
-                opacity: 0;
-            }
-        }
-
-        /* New animation for correct right answer (burst) */
+        /* Animation for correct right answer (burst) */
         @keyframes burst-out-correct {
             0% {
                 transform: scale(1) rotate(0deg);
@@ -304,24 +292,24 @@ const appId = firebaseConfig.appId;
             }
         }
 
-        .card-animate-out-correct-right-burst {
+        .card-animate-out-right {
             animation: burst-out-correct 0.2s ease-in forwards;
         }
 
-        /* New animation for incorrect answer */
-        @keyframes fade-out-incorrect {
-            0% {
-                transform: scale(1);
-                opacity: 1;
-            }
-            100% {
-                transform: scale(0.7);
-                opacity: 0;
-            }
+        /* Wobble animation for incorrect answer */
+        @keyframes wobble {
+            0% { transform: translateX(0) rotate(0deg); }
+            15% { transform: translateX(-10px) rotate(-5deg); }
+            30% { transform: translateX(10px) rotate(5deg); }
+            45% { transform: translateX(-10px) rotate(-5deg); }
+            60% { transform: translateX(10px) rotate(5deg); }
+            75% { transform: translateX(-5px) rotate(-2deg); }
+            90% { transform: translateX(5px) rotate(2deg); }
+            100% { transform: translateX(0) rotate(0deg); }
         }
 
-        .card-animate-out-incorrect {
-            animation: fade-out-incorrect 0.15s ease-out forwards;
+        .card-wobble {
+            animation: wobble 0.5s ease-in-out;
         }
 
         /* Positive particle animations */
@@ -474,7 +462,7 @@ const appId = firebaseConfig.appId;
     let isRepeated = false;
     let lastAnswerTime = performance.now();
     let isMuted = false;
-    let roundCount = 0; // Добавлено: счётчик раундов
+    let roundCount = 0;
     let isInedible = false;
 
     // Emojis for the game (expanded list)
@@ -550,9 +538,9 @@ const appId = firebaseConfig.appId;
             if (!gameActive || !isDragging) return;
             const currentX = e.changedTouches[0].screenX;
             const deltaX = currentX - touchstartX;
-            const maxMove = 100; // Максимальное смещение в пикселях
+            const maxMove = 100;
             const move = Math.max(-maxMove, Math.min(maxMove, deltaX));
-            const rotate = move / 10; // Небольшой поворот, пропорциональный движению
+            const rotate = move / 10;
             cardDisplay.style.transform = `translateX(${move}px) rotate(${rotate}deg)`;
         }, false);
 
@@ -562,13 +550,13 @@ const appId = firebaseConfig.appId;
             isDragging = false;
 
             const touchendX = e.changedTouches[0].screenX;
-            cardDisplay.style.transition = ''; // Enable CSS transition back
 
             // Determine if it was a valid swipe
-            if (touchendX < touchstartX - 50) handleInput('left');
-            else if (touchendX > touchstartX + 50) handleInput('right');
+            if (touchendX < touchstartX - 50) handleInput('left', touchendX);
+            else if (touchendX > touchstartX + 50) handleInput('right', touchendX);
             else {
                 // If swipe was too short, snap the card back to original position
+                cardDisplay.style.transition = 'transform 0.2s ease-in-out';
                 cardDisplay.style.transform = '';
             }
         }, false);
@@ -621,7 +609,7 @@ const appId = firebaseConfig.appId;
     function startGame() {
         score = 0;
         seenCards = [];
-        roundCount = 0; // Сброс счётчика раундов
+        roundCount = 0;
         gameActive = true;
         isInedible = false;
         overlay.classList.add('opacity-0', 'pointer-events-none');
@@ -691,30 +679,19 @@ const appId = firebaseConfig.appId;
 
     function handleInput(direction) {
         let correct = false;
-        let animationClass = '';
-        let isCorrectRepeatRight = false;
 
-        // Сбрасываем трансформацию перед началом финальной анимации
-        cardDisplay.style.transform = '';
-
+        // Determine correctness
         if (isInedible) {
             if (direction === 'right') {
                 correct = true;
-                isCorrectRepeatRight = true;
-                animationClass = 'card-animate-out-correct-right-burst';
             } else {
                 endGame('Это несъедобно!');
                 return;
             }
         } else if (direction === 'left' && !isRepeated) {
             correct = true;
-            animationClass = 'card-animate-out-correct-left';
         } else if (direction === 'right' && isRepeated) {
             correct = true;
-            isCorrectRepeatRight = true;
-            animationClass = 'card-animate-out-correct-right-burst';
-        } else {
-            animationClass = 'card-animate-out-incorrect';
         }
 
         if (correct) {
@@ -739,22 +716,43 @@ const appId = firebaseConfig.appId;
 
             updateScore();
             createPositiveEffect();
-            cardDisplay.classList.add(animationClass);
+
+            // Animate card out based on direction
+            if (direction === 'left') {
+                let endX, endY, endRotate;
+                endX = -window.innerWidth * 1.5;
+                endY = window.innerHeight * 1.5;
+                endRotate = -45;
+                cardDisplay.style.setProperty('--end-x', `${endX}px`);
+                cardDisplay.style.setProperty('--end-y', `${endY}px`);
+                cardDisplay.style.setProperty('--end-rotate', `${endRotate}deg`);
+                cardDisplay.classList.add('card-animate-out-left');
+                setTimeout(() => {
+                    cardDisplay.classList.remove('card-animate-out-left');
+                    gameLoop();
+                }, 200);
+            } else { // Correct right swipe or inedible swipe
+                cardDisplay.classList.add('card-animate-out-right');
+                setTimeout(() => {
+                    cardDisplay.classList.remove('card-animate-out-right');
+                    gameLoop();
+                }, 200);
+            }
+
             roundCount++;
             isInedible = false;
 
-            const timeoutDuration = isCorrectRepeatRight ? 200 : 100;
-
-            setTimeout(() => {
-                cardDisplay.classList.remove(animationClass);
-                gameLoop();
-            }, timeoutDuration);
         } else {
             if (window.Telegram && Telegram.WebApp.HapticFeedback) {
                 Telegram.WebApp.HapticFeedback.notificationOccurred('error');
             }
 
-            animationClass = 'card-animate-out-incorrect';
+            // Incorrect answer wobble animation
+            cardDisplay.classList.add('card-wobble');
+            setTimeout(() => {
+                cardDisplay.classList.remove('card-wobble');
+            }, 500);
+
             let reason = '';
             if (direction === 'left' && isRepeated) {
                 reason = 'Я это уже ела!';
@@ -766,7 +764,6 @@ const appId = firebaseConfig.appId;
 
             setTimeout(() => {
                 endGame(reason);
-                cardDisplay.classList.remove(animationClass);
             }, 150);
         }
     }
